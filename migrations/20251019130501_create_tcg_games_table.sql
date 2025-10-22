@@ -1,0 +1,10 @@
+-- +goose Up
+CREATE TABLE "tcg_games"(
+    "tcg_game_id" SERIAL PRIMARY KEY,
+    "name" VARCHAR(100) NOT NULL,
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- +goose Down
+DROP TABLE "tcg_games";
