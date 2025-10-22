@@ -1,0 +1,1 @@
+SELECT * FROM cards JOIN tcg_games ON cards.tcg_game_id = tcg_games.tcg_game_id JOIN languages ON cards.language_id = languages.language_id;

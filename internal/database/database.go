@@ -13,6 +13,20 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
+type Card struct {
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	ImageURL    string    `json:"image_url"`
+	Description string    `json:"description"`
+	SetName     string    `json:"set_name"`
+	CardNumber  string    `json:"card_number"`
+	Rarity      string    `json:"rarity"`
+	TCGGameID   int       `json:"tcg_game_id"`
+	LanguageID  int       `json:"language_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -22,6 +36,10 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// GetCardsFromDB returns a list of card names from the cards table.
+	// TODO: Replace with a richer domain model and filtering/pagination as needed.
+	GetCardsFromDB() ([]Card, error)
 }
 
 type service struct {
@@ -112,4 +130,22 @@ func (s *service) Health() map[string]string {
 func (s *service) Close() error {
 	log.Printf("Disconnected from database: %s", database)
 	return s.db.Close()
+}
+
+func (s *service) GetCardsFromDB() ([]Card, error) {
+	rows, err := s.db.Query("SELECT * FROM cards")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cards []Card
+	for rows.Next() {
+		var card Card
+		if err := rows.Scan(&card.ID, &card.Name, &card.ImageURL, &card.Description, &card.SetName, &card.CardNumber, &card.Rarity, &card.TCGGameID, &card.LanguageID, &card.CreatedAt, &card.UpdatedAt); err != nil {
+			return nil, err
+		}
+		cards = append(cards, card)
+	}
+	return cards, nil
 }

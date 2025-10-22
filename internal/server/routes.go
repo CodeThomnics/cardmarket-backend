@@ -43,7 +43,7 @@ func (s *FiberServer) RegisterFiberRoutes() {
 
 func (s *FiberServer) HelloWorldHandler(c *fiber.Ctx) error {
 	resp := fiber.Map{
-		"message": "Hello World!",
+		"message": "Hello World",
 	}
 
 	return c.JSON(resp)
@@ -54,7 +54,11 @@ func (s *FiberServer) healthHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) listCardsHandler(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"items": []string{}})
+	cards, err := s.db.GetCardsFromDB()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"items": cards})
 }
 
 func (s *FiberServer) createOrderHandler(c *fiber.Ctx) error {
