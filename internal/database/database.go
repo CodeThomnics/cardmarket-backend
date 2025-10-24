@@ -13,6 +13,53 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
+type Card struct {
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	ImageURL    string    `json:"image_url"`
+	Description string    `json:"description"`
+	SetName     string    `json:"set_name"`
+	CardNumber  string    `json:"card_number"`
+	Rarity      string    `json:"rarity"`
+	TCGGame     string    `json:"tcg_game"`
+	Language    string    `json:"language"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type CardRequest struct {
+	Name        string `json:"name"`
+	ImageURL    string `json:"image_url"`
+	Description string `json:"description"`
+	SetName     string `json:"set_name"`
+	CardNumber  string `json:"card_number"`
+	Rarity      string `json:"rarity"`
+	LanguageID  int    `json:"language_id"`
+	TCGGameID   int    `json:"tcg_game_id"`
+}
+
+type Product struct {
+	ProductID   int       `json:"product_id"`
+	Price       int       `json:"price"`
+	Condition   string    `json:"condition"`
+	Quantity    int       `json:"quantity"`
+	IsAvailable bool      `json:"is_available"`
+	SellerID    int       `json:"seller_id"`
+	CardID      int       `json:"card_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type ProductRequest struct {
+	ProductID   int    `json:"product_id"`
+	Price       int    `json:"price"`
+	Condition   string `json:"condition"`
+	Quantity    int    `json:"quantity"`
+	IsAvailable bool   `json:"is_available"`
+	SellerID    int    `json:"seller_id"`
+	CardID      int    `json:"card_id"`
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -22,6 +69,18 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// ListCards returns a list of card names from the cards table.
+	// TODO: Replace with a richer domain model and filtering/pagination as needed.
+	ListCards() ([]Card, error)
+
+	GetCardByID(cardID int) (Card, error)
+
+	CreateCard(card CardRequest) error
+
+	UpdateCard(cardID int, card CardRequest) error
+
+	DeleteCard(cardID int) error
 }
 
 type service struct {
@@ -112,4 +171,80 @@ func (s *service) Health() map[string]string {
 func (s *service) Close() error {
 	log.Printf("Disconnected from database: %s", database)
 	return s.db.Close()
+}
+
+func (s *service) ListCards() ([]Card, error) {
+	rows, err := s.db.Query("SELECT c.card_id, c.name, c.image_url, c.description, c.set_name, c.card_number, c.rarity,l.language_name AS language,tcg.name AS tcg_game,c.created_at,c.updated_at FROM cards c JOIN languages l ON c.language_id = l.language_id JOIN tcg_games tcg ON c.tcg_game_id = tcg.tcg_game_id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var cards []Card
+	for rows.Next() {
+		var card Card
+		if err := rows.Scan(&card.ID, &card.Name, &card.ImageURL, &card.Description, &card.SetName, &card.CardNumber, &card.Rarity, &card.Language, &card.TCGGame, &card.CreatedAt, &card.UpdatedAt); err != nil {
+			return nil, err
+		}
+		cards = append(cards, card)
+	}
+	return cards, nil
+}
+
+func (s *service) GetCardByID(cardID int) (Card, error) {
+	var card Card
+	err := s.db.QueryRow("SELECT c.card_id, c.name, c.image_url, c.description, c.set_name, c.card_number, c.rarity,l.language_name AS language,tcg.name AS tcg_game,c.created_at,c.updated_at FROM cards c JOIN languages l ON c.language_id = l.language_id JOIN tcg_games tcg ON c.tcg_game_id = tcg.tcg_game_id WHERE c.card_id = $1", cardID).Scan(&card.ID, &card.Name, &card.ImageURL, &card.Description, &card.SetName, &card.CardNumber, &card.Rarity, &card.Language, &card.TCGGame, &card.CreatedAt, &card.UpdatedAt)
+	if err != nil {
+		return Card{}, err
+	}
+	return card, nil
+}
+
+func (s *service) CreateCard(card CardRequest) error {
+	query := `INSERT INTO cards (name, image_url, description, set_name, card_number, rarity, language_id, tcg_game_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	_, err := s.db.Exec(query, card.Name, card.ImageURL, card.Description, card.SetName, card.CardNumber, card.Rarity, card.LanguageID, card.TCGGameID)
+	return err
+}
+
+func (s *service) UpdateCard(cardID int, card CardRequest) error {
+	query := `UPDATE cards SET name = $1, image_url = $2, description = $3, set_name = $4, card_number = $5, rarity = $6, language_id = $7, tcg_game_id = $8, updated_at = CURRENT_TIMESTAMP WHERE card_id = $9`
+
+	result, err := s.db.Exec(query, card.Name, card.ImageURL, card.Description, card.SetName, card.CardNumber, card.Rarity, card.LanguageID, card.TCGGameID, cardID)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (s *service) DeleteCard(cardID int) error {
+	query := `DELETE FROM cards WHERE card_id = $1`
+
+	result, err := s.db.Exec(query, cardID)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
