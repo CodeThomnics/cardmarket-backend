@@ -123,7 +123,7 @@ func (s *FiberServer) updateCardHandler(c *fiber.Ctx) error {
 
 	s.db.UpdateCard(cardID, card)
 
-	return c.JSON(fiber.Map{"message": "Update successful!"})
+	return c.JSON(fiber.Map{"message": "card updated"})
 }
 
 func (s *FiberServer) deleteCardHandler(c *fiber.Ctx) error {
@@ -142,7 +142,7 @@ func (s *FiberServer) deleteCardHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{"message": "Card deleted successfully"})
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "card deleted"})
 }
 
 func (s *FiberServer) createOrderHandler(c *fiber.Ctx) error {
