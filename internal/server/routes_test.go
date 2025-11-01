@@ -13,11 +13,16 @@ import (
 )
 
 type MockDBService struct {
-	ListCardsFunc   func() ([]database.Card, error)
-	GetCardByIDFunc func() (database.Card, error)
-	CreateCardFunc  func(card database.CardRequest) error
-	UpdateCardFunc  func(cardID int, card database.CardRequest) error
-	DeleteCardFunc  func(cardID int) error
+	ListCardsFunc      func() ([]database.Card, error)
+	GetCardByIDFunc    func() (database.Card, error)
+	CreateCardFunc     func(card database.CardRequest) error
+	UpdateCardFunc     func(cardID int, card database.CardRequest) error
+	DeleteCardFunc     func(cardID int) error
+	ListProductsFunc   func() ([]database.Product, error)
+	GetProductByIDFunc func(productID int) (database.Product, error)
+	CreateProductFunc  func(product database.ProductRequest) error
+	UpdateProductFunc  func(productID int, product database.ProductRequest) error
+	DeleteProductFunc  func(productID int) error
 }
 
 func (m *MockDBService) Close() error {
@@ -59,6 +64,41 @@ func (m *MockDBService) UpdateCard(cardID int, card database.CardRequest) error 
 func (m *MockDBService) DeleteCard(cardID int) error {
 	if m.DeleteCardFunc != nil {
 		return m.DeleteCardFunc(cardID)
+	}
+	return nil
+}
+
+func (m *MockDBService) ListProducts() ([]database.Product, error) {
+	if m.ListProductsFunc != nil {
+		return m.ListProductsFunc()
+	}
+	return []database.Product{}, nil
+}
+
+func (m *MockDBService) GetProductByID(productID int) (database.Product, error) {
+	if m.GetProductByIDFunc != nil {
+		return m.GetProductByIDFunc(productID)
+	}
+	return database.Product{}, nil
+}
+
+func (m *MockDBService) CreateProduct(product database.ProductRequest) error {
+	if m.CreateProductFunc != nil {
+		return m.CreateProductFunc(product)
+	}
+	return nil
+}
+
+func (m *MockDBService) UpdateProduct(productID int, product database.ProductRequest) error {
+	if m.UpdateProductFunc != nil {
+		return m.UpdateProductFunc(productID, product)
+	}
+	return nil
+}
+
+func (m *MockDBService) DeleteProduct(productID int) error {
+	if m.DeleteProductFunc != nil {
+		return m.DeleteProductFunc(productID)
 	}
 	return nil
 }
@@ -129,8 +169,8 @@ func TestHealthHandler(t *testing.T) {
 func TestListCardsHandler(t *testing.T) {
 
 	cards := []database.Card{
-		{ID: 1, Name: "Black Lotus", ImageURL: "https://example.com/black_lotus.jpg", Description: "Adds 3 mana of any single color to your mana pool, then is discarded.", SetName: "Alpha", CardNumber: "232", Rarity: "Mythic Rare", TCGGame: "Magic: The Gathering", Language: "English", CreatedAt: time.Now(), UpdatedAt: time.Now()},
-		{ID: 2, Name: "Charizard", ImageURL: "https://example.com/charizard.jpg", Description: "Spits fire that is hot enough to melt boulders. Known to cause forest fires unintentionally.", SetName: "Base Set", CardNumber: "4", Rarity: "Rare Holo", TCGGame: "Pokémon", Language: "English", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: 1, Name: "Black Lotus", ImageURL: "https://example.com/black_lotus.jpg", Description: "Adds 3 mana of any single color to your mana pool, then is discarded.", SetName: "Alpha", CardNumber: "232", Rarity: "Mythic Rare", TCGGame: "Magic: The Gathering", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: 2, Name: "Charizard", ImageURL: "https://example.com/charizard.jpg", Description: "Spits fire that is hot enough to melt boulders. Known to cause forest fires unintentionally.", SetName: "Base Set", CardNumber: "4", Rarity: "Rare Holo", TCGGame: "Pokémon", CreatedAt: time.Now(), UpdatedAt: time.Now()},
 	}
 	mockDB := MockDBService{
 		ListCardsFunc: func() ([]database.Card, error) {
@@ -172,7 +212,7 @@ func TestListCardsHandler(t *testing.T) {
 }
 
 func TestCardByIdHandler(t *testing.T) {
-	singleCard := database.Card{ID: 1, Name: "Black Lotus", ImageURL: "https://example.com/black_lotus.jpg", Description: "Adds 3 mana of any single color to your mana pool, then is discarded.", SetName: "Alpha", CardNumber: "232", Rarity: "Mythic Rare", TCGGame: "Magic: The Gathering", Language: "English", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	singleCard := database.Card{ID: 1, Name: "Black Lotus", ImageURL: "https://example.com/black_lotus.jpg", Description: "Adds 3 mana of any single color to your mana pool, then is discarded.", SetName: "Alpha", CardNumber: "232", Rarity: "Mythic Rare", TCGGame: "Magic: The Gathering", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	mockDB := MockDBService{
 		GetCardByIDFunc: func() (database.Card, error) {
 			return singleCard, nil
@@ -228,7 +268,6 @@ func TestCreateCardHandler(t *testing.T) {
 		SetName:     "Alpha",
 		CardNumber:  "232",
 		Rarity:      "Mythic Rare",
-		LanguageID:  1,
 		TCGGameID:   1,
 	}
 	cardRequestBytes, err := json.Marshal(cardRequest)
@@ -278,8 +317,7 @@ func TestUpdateCardHandler(t *testing.T) {
 		Description: "Adds 3 mana of any single color to your mana pool, then is discarded.",
 		SetName:     "Alpha",
 		CardNumber:  "232",
-		Rarity:      "Mythic Rare",
-		LanguageID:  2,
+		Rarity:      "Rare",
 		TCGGameID:   1,
 	}
 	cardRequestBytes, err := json.Marshal(cardRequest)

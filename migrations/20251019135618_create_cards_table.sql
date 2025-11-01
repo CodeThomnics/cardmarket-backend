@@ -8,17 +8,14 @@ CREATE TABLE "cards"(
     "card_number" VARCHAR(50),
     "rarity" VARCHAR(50),
     "tcg_game_id" INTEGER NOT NULL REFERENCES "tcg_games"("tcg_game_id"),
-    "language_id" INTEGER NOT NULL REFERENCES "languages"("language_id"),
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX "idx_cards_tcg_game" ON "cards"("tcg_game_id");
-CREATE INDEX "idx_cards_language" ON "cards"("language_id");
 CREATE INDEX "idx_cards_name" ON "cards"("name");
 
 -- +goose Down
 DROP INDEX "idx_cards_tcg_game";
-DROP INDEX "idx_cards_language";
 DROP INDEX "idx_cards_name";
 DROP TABLE "cards";

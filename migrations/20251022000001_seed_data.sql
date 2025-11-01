@@ -55,86 +55,76 @@ INSERT INTO users (username, email, password_hash, first_name, last_name, street
 );
 
 -- Cards
-INSERT INTO cards (name, image_url, description, set_name, card_number, rarity, tcg_game_id, language_id) VALUES
+INSERT INTO cards (name, image_url, description, set_name, card_number, rarity, tcg_game_id) VALUES
 ('Black Lotus', 'https://example.com/black_lotus.jpg', 'Adds 3 mana of any single color to your mana pool, then is discarded.', 'Alpha', '232', 'Mythic Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Magic: The Gathering'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Magic: The Gathering')
 ),
 ('Charizard', 'https://example.com/charizard.jpg', 'Stage 2 Pokémon. Evolved from Charmeleon.', 'Base Set', '4/102', 'Holo Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Pokemon'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Pokemon')
 ),
 ('Blue-Eyes White Dragon', 'https://example.com/blue_eyes.jpg', 'This legendary dragon is a powerful engine of destruction.', 'Legend of Blue Eyes', 'LOB-001', 'Ultra Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Yu-Gi-Oh!'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Yu-Gi-Oh!')
 ),
 ('Mox Ruby', 'https://example.com/mox_ruby.jpg', 'Adds one red mana to your mana pool.', 'Beta', '265', 'Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Magic: The Gathering'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Magic: The Gathering')
 ),
 ('Pikachu', 'https://example.com/pikachu.jpg', 'Mouse Pokémon., Weight: 13 lbs.', 'Base Set', '58/102', 'Common',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Pokemon'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Pokemon')
 ),
 ('Dark Magician', 'https://example.com/dark_magician.jpg', 'The ultimate wizard in terms of attack and defense.', 'Legend of Blue Eyes', 'LOB-005', 'Ultra Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Yu-Gi-Oh!'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Yu-Gi-Oh!')
 ),
 ('Briar', 'https://example.com/briar.jpg', 'Embodiment of earth and lightning', 'Tales of Aria', '1', 'Legendary',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Flesh and Blood'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Flesh and Blood')
 ),
 ('Omnimon', 'https://example.com/omnimon.jpg', 'DNA digivolved from WarGreymon and MetalGarurumon', 'Release Special', 'BT1-084', 'Secret Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Digimon'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Digimon')
 ),
 ('Monkey D. Luffy', 'https://example.com/luffy.jpg', 'Captain of the Straw Hat Pirates', 'Romance Dawn', 'OP01-001', 'Leader Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'One Piece Card Game'),
-	(SELECT language_id FROM languages WHERE language_code = 'EN')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'One Piece Card Game')
 ),
 ('Jace, the Mind Sculptor', 'https://example.com/jace.jpg', 'Powerful planeswalker with multiple abilities', 'Worldwake', '31', 'Mythic Rare',
-	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Magic: The Gathering'),
-	(SELECT language_id FROM languages WHERE language_code = 'DE')
+	(SELECT tcg_game_id FROM tcg_games WHERE name = 'Magic: The Gathering')
 );
 
 -- Products
-INSERT INTO products (seller_id, card_id, price, condition, quantity, is_available) VALUES
+INSERT INTO products (seller_id, card_id, price, condition, quantity, is_available, language_id) VALUES
 ((SELECT user_id FROM users WHERE username = 'magicdealer'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Black Lotus' AND c.set_name = 'Alpha' AND l.language_code = 'EN' LIMIT 1),
- 25000.00, 'good', 1, true),
+ (SELECT card_id FROM cards WHERE name = 'Black Lotus' AND set_name = 'Alpha' LIMIT 1),
+ 25000.00, 'good', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'powertcg'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Charizard' AND c.set_name = 'Base Set' AND l.language_code = 'EN' LIMIT 1),
- 5000.00, 'near mint', 1, true),
+ (SELECT card_id FROM cards WHERE name = 'Charizard' AND set_name = 'Base Set' LIMIT 1),
+ 5000.00, 'near mint', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'magicdealer'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Blue-Eyes White Dragon' AND c.set_name = 'Legend of Blue Eyes' AND l.language_code = 'EN' LIMIT 1),
- 120.00, 'excellent', 2, true),
+ (SELECT card_id FROM cards WHERE name = 'Blue-Eyes White Dragon' AND set_name = 'Legend of Blue Eyes' LIMIT 1),
+ 120.00, 'excellent', 2, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'powertcg'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Mox Ruby' AND c.set_name = 'Beta' AND l.language_code = 'EN' LIMIT 1),
- 4500.00, 'light_played', 1, true),
+ (SELECT card_id FROM cards WHERE name = 'Mox Ruby' AND set_name = 'Beta' LIMIT 1),
+ 4500.00, 'light_played', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'rarefinds'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Pikachu' AND c.set_name = 'Base Set' AND l.language_code = 'EN' LIMIT 1),
- 25.00, 'mint', 4, true),
+ (SELECT card_id FROM cards WHERE name = 'Pikachu' AND set_name = 'Base Set' LIMIT 1),
+ 25.00, 'mint', 4, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'magicdealer'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Dark Magician' AND c.set_name = 'Legend of Blue Eyes' AND l.language_code = 'EN' LIMIT 1),
- 85.00, 'excellent', 3, true),
+ (SELECT card_id FROM cards WHERE name = 'Dark Magician' AND set_name = 'Legend of Blue Eyes' LIMIT 1),
+ 85.00, 'excellent', 3, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'rarefinds'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Briar' AND c.set_name = 'Tales of Aria' AND l.language_code = 'EN' LIMIT 1),
- 150.00, 'near mint', 2, true),
+ (SELECT card_id FROM cards WHERE name = 'Briar' AND set_name = 'Tales of Aria' LIMIT 1),
+ 150.00, 'near mint', 2, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'powertcg'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Omnimon' AND c.set_name = 'Release Special' AND l.language_code = 'EN' LIMIT 1),
- 200.00, 'mint', 1, true),
+ (SELECT card_id FROM cards WHERE name = 'Omnimon' AND set_name = 'Release Special' LIMIT 1),
+ 200.00, 'mint', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'rarefinds'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Monkey D. Luffy' AND c.set_name = 'Romance Dawn' AND l.language_code = 'EN' LIMIT 1),
- 45.00, 'excellent', 5, true),
+ (SELECT card_id FROM cards WHERE name = 'Monkey D. Luffy' AND set_name = 'Romance Dawn' LIMIT 1),
+ 45.00, 'excellent', 5, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'magicdealer'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Jace, the Mind Sculptor' AND c.set_name = 'Worldwake' AND l.language_code = 'DE' LIMIT 1),
- 250.00, 'near mint', 2, true),
+ (SELECT card_id FROM cards WHERE name = 'Jace, the Mind Sculptor' AND set_name = 'Worldwake' LIMIT 1),
+ 250.00, 'near mint', 2, true, (SELECT language_id FROM languages WHERE language_code = 'DE')),
 ((SELECT user_id FROM users WHERE username = 'powertcg'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Black Lotus' AND c.set_name = 'Alpha' AND l.language_code = 'EN' LIMIT 1),
- 30000.00, 'near mint', 1, true),
+ (SELECT card_id FROM cards WHERE name = 'Black Lotus' AND set_name = 'Alpha' LIMIT 1),
+ 30000.00, 'near mint', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN')),
 ((SELECT user_id FROM users WHERE username = 'rarefinds'),
- (SELECT c.card_id FROM cards c JOIN languages l ON l.language_id = c.language_id WHERE c.name = 'Charizard' AND c.set_name = 'Base Set' AND l.language_code = 'EN' LIMIT 1),
- 6500.00, 'mint', 1, true);
+ (SELECT card_id FROM cards WHERE name = 'Charizard' AND set_name = 'Base Set' LIMIT 1),
+ 6500.00, 'mint', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN'));
 
 -- Orders
 INSERT INTO orders (buyer_id, order_date, total_amount, status) VALUES
@@ -174,8 +164,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'magicdealer' AND c.name = 'Black Lotus' AND c.set_name = 'Alpha' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'magicdealer' AND c.name = 'Black Lotus' AND c.set_name = 'Alpha' LIMIT 1),
  1, 25000.00),
 ((SELECT so.sub_order_id FROM sub_orders so 
 	 JOIN orders o ON o.order_id = so.order_id 
@@ -185,8 +174,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'magicdealer' AND c.name = 'Blue-Eyes White Dragon' AND c.set_name = 'Legend of Blue Eyes' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'magicdealer' AND c.name = 'Blue-Eyes White Dragon' AND c.set_name = 'Legend of Blue Eyes' LIMIT 1),
  1, 120.00),
 ((SELECT so.sub_order_id FROM sub_orders so 
 	 JOIN orders o ON o.order_id = so.order_id 
@@ -196,8 +184,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'powertcg' AND c.name = 'Charizard' AND c.set_name = 'Base Set' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'powertcg' AND c.name = 'Charizard' AND c.set_name = 'Base Set' LIMIT 1),
  1, 5000.00),
 ((SELECT so.sub_order_id FROM sub_orders so 
 	 JOIN orders o ON o.order_id = so.order_id 
@@ -207,8 +194,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'powertcg' AND c.name = 'Mox Ruby' AND c.set_name = 'Beta' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'powertcg' AND c.name = 'Mox Ruby' AND c.set_name = 'Beta' LIMIT 1),
  1, 4500.00),
 ((SELECT so.sub_order_id FROM sub_orders so 
 	 JOIN orders o ON o.order_id = so.order_id 
@@ -218,8 +204,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' LIMIT 1),
  1, 150.00),
 ((SELECT so.sub_order_id FROM sub_orders so 
 	 JOIN orders o ON o.order_id = so.order_id 
@@ -229,8 +214,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' LIMIT 1),
  1, 150.00),
 ((SELECT so.sub_order_id FROM sub_orders so 
 	 JOIN orders o ON o.order_id = so.order_id 
@@ -240,8 +224,7 @@ INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
  (SELECT p.product_id FROM products p 
 	 JOIN users us ON us.user_id = p.seller_id 
 	 JOIN cards c ON c.card_id = p.card_id 
-	 JOIN languages l ON l.language_id = c.language_id
-	 WHERE us.username = 'rarefinds' AND c.name = 'Monkey D. Luffy' AND c.set_name = 'Romance Dawn' AND l.language_code = 'EN' LIMIT 1),
+	 WHERE us.username = 'rarefinds' AND c.name = 'Monkey D. Luffy' AND c.set_name = 'Romance Dawn' LIMIT 1),
  1, 45.00);
 
 -- +goose Down
