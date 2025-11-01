@@ -50,14 +50,14 @@ type Product struct {
 }
 
 type ProductRequest struct {
-	ProductID   int    `json:"product_id"`
-	Price       int    `json:"price"`
-	Condition   string `json:"condition"`
-	Quantity    int    `json:"quantity"`
-	IsAvailable bool   `json:"is_available"`
-	SellerID    int    `json:"seller_id"`
-	CardID      int    `json:"card_id"`
-	LanguageID  int    `json:"language_id"`
+	ProductID   int     `json:"product_id"`
+	Price       float64 `json:"price"`
+	Condition   string  `json:"condition"`
+	Quantity    int     `json:"quantity"`
+	IsAvailable bool    `json:"is_available"`
+	SellerID    int     `json:"seller_id"`
+	CardID      int     `json:"card_id"`
+	LanguageID  int     `json:"language_id"`
 }
 
 // Service represents a service that interacts with a database.
