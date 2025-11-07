@@ -23,6 +23,11 @@ type MockDBService struct {
 	CreateProductFunc  func(product database.ProductRequest) error
 	UpdateProductFunc  func(productID int, product database.ProductRequest) error
 	DeleteProductFunc  func(productID int) error
+	ListOrdersFunc     func() ([]database.Order, error)
+	GetOrderByIDFunc   func(orderID int) (database.Order, error)
+	CreateOrderFunc    func(order database.OrderRequest) error
+	UpdateOrderFunc    func(orderID int, order database.OrderRequest) error
+	DeleteOrderFunc    func(orderID int) error
 }
 
 func (m *MockDBService) Close() error {
@@ -99,6 +104,41 @@ func (m *MockDBService) UpdateProduct(productID int, product database.ProductReq
 func (m *MockDBService) DeleteProduct(productID int) error {
 	if m.DeleteProductFunc != nil {
 		return m.DeleteProductFunc(productID)
+	}
+	return nil
+}
+
+func (m *MockDBService) ListOrders() ([]database.Order, error) {
+	if m.ListOrdersFunc != nil {
+		return m.ListOrdersFunc()
+	}
+	return []database.Order{}, nil
+}
+
+func (m *MockDBService) GetOrderByID(orderID int) (database.Order, error) {
+	if m.GetOrderByIDFunc != nil {
+		return m.GetOrderByIDFunc(orderID)
+	}
+	return database.Order{}, nil
+}
+
+func (m *MockDBService) CreateOrder(order database.OrderRequest) error {
+	if m.CreateOrderFunc != nil {
+		return m.CreateOrderFunc(order)
+	}
+	return nil
+}
+
+func (m *MockDBService) UpdateOrder(orderID int, order database.OrderRequest) error {
+	if m.UpdateOrderFunc != nil {
+		return m.UpdateOrderFunc(orderID, order)
+	}
+	return nil
+}
+
+func (m *MockDBService) DeleteOrder(orderID int) error {
+	if m.DeleteOrderFunc != nil {
+		return m.DeleteOrderFunc(orderID)
 	}
 	return nil
 }
@@ -381,6 +421,217 @@ func TestDeleteCardHandler(t *testing.T) {
 	}
 
 	expected := "{\"message\":\"card deleted\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestListOrdersHandler(t *testing.T) {
+	orders := []database.Order{
+		{OrderID: 1, Buyer: "john_doe", OrderDate: time.Now(), Total: 99.99, Status: "Processing", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{OrderID: 2, Buyer: "jane_smith", OrderDate: time.Now(), Total: 49.49, Status: "Shipped", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+	}
+	mockDB := MockDBService{
+		ListOrdersFunc: func() ([]database.Order, error) {
+			return orders, nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Get("/api/orders", s.ListOrdersHandler)
+
+	req, err := http.NewRequest("GET", "/api/orders", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+	bytes, err := json.Marshal(orders)
+	if err != nil {
+		t.Fatalf("error marshalling expected orders. Err: %v", err)
+	}
+
+	expected := "{\"orders\":" + string(bytes) + "}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+
+}
+
+func TestGetOrderByIDHandler(t *testing.T) {
+	singleOrder := database.Order{OrderID: 1, Buyer: "john_doe", OrderDate: time.Now(), Total: 99.99, Status: "Processing", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	mockDB := MockDBService{
+		GetOrderByIDFunc: func(orderID int) (database.Order, error) {
+			return singleOrder, nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Get("/api/orders/:id", s.GetOrderByIDHandler)
+
+	req, err := http.NewRequest("GET", "/api/orders/1", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+	bytes, err := json.Marshal(singleOrder)
+	if err != nil {
+		t.Fatalf("error marshalling expected order. Err: %v", err)
+	}
+
+	expected := "{\"order\":" + string(bytes) + "}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestCreateOrderHandler(t *testing.T) {
+	mockDB := MockDBService{
+		CreateOrderFunc: func(order database.OrderRequest) error {
+			return nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Post("/api/orders", s.CreateOrderHandler)
+
+	orderRequest := database.OrderRequest{
+		BuyerID:   1,
+		OrderDate: time.Now(),
+		Total:     99.99,
+		Status:    "Processing",
+	}
+	orderRequestBytes, err := json.Marshal(orderRequest)
+	if err != nil {
+		t.Fatalf("error marshalling order request. Err: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/orders", strings.NewReader(string(orderRequestBytes)))
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("expected status Created; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"order created\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestUpdateOrderHandler(t *testing.T) {
+	mockDB := MockDBService{
+		UpdateOrderFunc: func(orderID int, order database.OrderRequest) error {
+			return nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Put("/api/orders/:id", s.UpdateOrderHandler)
+
+	orderRequest := database.OrderRequest{
+		BuyerID:   1,
+		OrderDate: time.Now(),
+		Total:     89.99,
+		Status:    "Shipped",
+	}
+	orderRequestBytes, err := json.Marshal(orderRequest)
+	if err != nil {
+		t.Fatalf("error marshalling order request. Err: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/orders/1", strings.NewReader(string(orderRequestBytes)))
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"order updated\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestDeleteOrderHandler(t *testing.T) {
+	mockDB := MockDBService{
+		DeleteOrderFunc: func(orderID int) error {
+			return nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Delete("/api/orders/:id", s.DeleteOrderHandler)
+
+	req, err := http.NewRequest("DELETE", "/api/orders/1", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"order deleted\"}"
 	if expected != string(body) {
 		t.Errorf("expected response body to be %v; got %v", expected, string(body))
 	}
