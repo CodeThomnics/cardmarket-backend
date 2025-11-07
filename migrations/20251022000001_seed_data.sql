@@ -127,110 +127,122 @@ INSERT INTO products (seller_id, card_id, price, condition, quantity, is_availab
  6500.00, 'mint', 1, true, (SELECT language_id FROM languages WHERE language_code = 'EN'));
 
 -- Orders
-INSERT INTO orders (buyer_id, order_date, total_amount, status) VALUES
-((SELECT user_id FROM users WHERE username = 'cardcollector'), '2025-09-15 10:30:00+00', 25085.00, 'completed'),
-((SELECT user_id FROM users WHERE username = 'casualplayer'), '2025-09-28 14:15:00+00', 5140.00, 'completed'),
-((SELECT user_id FROM users WHERE username = 'mtgbuyer'), '2025-10-10 09:45:00+00', 4685.00, 'processing'),
-((SELECT user_id FROM users WHERE username = 'cardcollector'), '2025-10-18 16:20:00+00', 203.00, 'pending');
-
--- Sub-orders
-INSERT INTO sub_orders (order_id, seller_id, subtotal, shipping_cost, status, tracking_number, shipped_at, delivered_at) VALUES
-((SELECT o.order_id FROM orders o JOIN users u ON u.user_id = o.buyer_id WHERE u.username = 'cardcollector' AND o.order_date = '2025-09-15 10:30:00+00'),
+INSERT INTO orders (buyer_id, seller_id, quantity, product_id, order_date, shipping_address, shipping_cost, total_amount, tracking_number, shipped_at, delivered_at, status) VALUES
+-- Order 1: cardcollector buys Black Lotus from magicdealer
+((SELECT user_id FROM users WHERE username = 'cardcollector'),
  (SELECT user_id FROM users WHERE username = 'magicdealer'),
- 25000.00, 85.00, 'delivered', 'TRK7829456321', '2025-09-16 11:45:00+00', '2025-09-19 14:30:00+00'),
-((SELECT o.order_id FROM orders o JOIN users u ON u.user_id = o.buyer_id WHERE u.username = 'casualplayer' AND o.order_date = '2025-09-28 14:15:00+00'),
+ 1,
+ (SELECT p.product_id FROM products p 
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'magicdealer' AND c.name = 'Black Lotus' AND c.set_name = 'Alpha' LIMIT 1),
+ '2025-09-15 10:30:00+00',
+ '15 Rue de Seine, 75006 Paris, France',
+ 85.00,
+ 25085.00,
+ 'TRK7829456321',
+ '2025-09-16 11:45:00+00',
+ '2025-09-19 14:30:00+00',
+ 'completed'),
+-- Order 2: casualplayer buys Blue-Eyes White Dragon from magicdealer
+((SELECT user_id FROM users WHERE username = 'casualplayer'),
  (SELECT user_id FROM users WHERE username = 'magicdealer'),
- 120.00, 5.00, 'delivered', 'TRK4832957612', '2025-09-29 10:20:00+00', '2025-10-02 15:45:00+00'),
-((SELECT o.order_id FROM orders o JOIN users u ON u.user_id = o.buyer_id WHERE u.username = 'casualplayer' AND o.order_date = '2025-09-28 14:15:00+00'),
+ 1,
+ (SELECT p.product_id FROM products p 
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'magicdealer' AND c.name = 'Blue-Eyes White Dragon' AND c.set_name = 'Legend of Blue Eyes' LIMIT 1),
+ '2025-09-28 14:15:00+00',
+ '8 Calle Mayor, 28013 Madrid, Spain',
+ 5.00,
+ 125.00,
+ 'TRK4832957612',
+ '2025-09-29 10:20:00+00',
+ '2025-10-02 15:45:00+00',
+ 'completed'),
+-- Order 3: casualplayer buys Charizard from powertcg
+((SELECT user_id FROM users WHERE username = 'casualplayer'),
  (SELECT user_id FROM users WHERE username = 'powertcg'),
- 5000.00, 15.00, 'delivered', 'TRK3918274650', '2025-09-29 09:15:00+00', '2025-10-03 12:30:00+00'),
-((SELECT o.order_id FROM orders o JOIN users u ON u.user_id = o.buyer_id WHERE u.username = 'mtgbuyer' AND o.order_date = '2025-10-10 09:45:00+00'),
+ 1,
+ (SELECT p.product_id FROM products p 
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'powertcg' AND c.name = 'Charizard' AND c.set_name = 'Base Set' LIMIT 1),
+ '2025-09-28 14:15:00+00',
+ '8 Calle Mayor, 28013 Madrid, Spain',
+ 15.00,
+ 5015.00,
+ 'TRK3918274650',
+ '2025-09-29 09:15:00+00',
+ '2025-10-03 12:30:00+00',
+ 'completed'),
+-- Order 4: mtgbuyer buys Mox Ruby from powertcg
+((SELECT user_id FROM users WHERE username = 'mtgbuyer'),
  (SELECT user_id FROM users WHERE username = 'powertcg'),
- 4500.00, 25.00, 'shipped', 'TRK9274619385', '2025-10-12 13:40:00+00', NULL),
-((SELECT o.order_id FROM orders o JOIN users u ON u.user_id = o.buyer_id WHERE u.username = 'mtgbuyer' AND o.order_date = '2025-10-10 09:45:00+00'),
+ 1,
+ (SELECT p.product_id FROM products p 
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'powertcg' AND c.name = 'Mox Ruby' AND c.set_name = 'Beta' LIMIT 1),
+ '2025-10-10 09:45:00+00',
+ '103 Maple Avenue, M5V 2A4 Toronto, Canada',
+ 25.00,
+ 4525.00,
+ 'TRK9274619385',
+ '2025-10-12 13:40:00+00',
+ NULL,
+ 'completed'),
+-- Order 5: mtgbuyer buys Briar from rarefinds
+((SELECT user_id FROM users WHERE username = 'mtgbuyer'),
  (SELECT user_id FROM users WHERE username = 'rarefinds'),
- 150.00, 10.00, 'processing', NULL, NULL, NULL),
-((SELECT o.order_id FROM orders o JOIN users u ON u.user_id = o.buyer_id WHERE u.username = 'cardcollector' AND o.order_date = '2025-10-18 16:20:00+00'),
+ 1,
+ (SELECT p.product_id FROM products p 
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' LIMIT 1),
+ '2025-10-10 09:45:00+00',
+ '103 Maple Avenue, M5V 2A4 Toronto, Canada',
+ 10.00,
+ 160.00,
+ NULL,
+ NULL,
+ NULL,
+ 'processing'),
+-- Order 6: cardcollector buys Briar from rarefinds
+((SELECT user_id FROM users WHERE username = 'cardcollector'),
  (SELECT user_id FROM users WHERE username = 'rarefinds'),
- 195.00, 8.00, 'pending', NULL, NULL, NULL);
-
--- Order items
-INSERT INTO order_items (sub_order_id, product_id, quantity, unit_price) VALUES
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'cardcollector' AND o.order_date = '2025-09-15 10:30:00+00' AND us.username = 'magicdealer'),
+ 1,
  (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'magicdealer' AND c.name = 'Black Lotus' AND c.set_name = 'Alpha' LIMIT 1),
- 1, 25000.00),
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'casualplayer' AND o.order_date = '2025-09-28 14:15:00+00' AND us.username = 'magicdealer'),
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' LIMIT 1),
+ '2025-10-18 16:20:00+00',
+ '15 Rue de Seine, 75006 Paris, France',
+ 8.00,
+ 158.00,
+ NULL,
+ NULL,
+ NULL,
+ 'pending'),
+-- Order 7: cardcollector buys Monkey D. Luffy from rarefinds
+((SELECT user_id FROM users WHERE username = 'cardcollector'),
+ (SELECT user_id FROM users WHERE username = 'rarefinds'),
+ 1,
  (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'magicdealer' AND c.name = 'Blue-Eyes White Dragon' AND c.set_name = 'Legend of Blue Eyes' LIMIT 1),
- 1, 120.00),
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'casualplayer' AND o.order_date = '2025-09-28 14:15:00+00' AND us.username = 'powertcg'),
- (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'powertcg' AND c.name = 'Charizard' AND c.set_name = 'Base Set' LIMIT 1),
- 1, 5000.00),
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'mtgbuyer' AND o.order_date = '2025-10-10 09:45:00+00' AND us.username = 'powertcg'),
- (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'powertcg' AND c.name = 'Mox Ruby' AND c.set_name = 'Beta' LIMIT 1),
- 1, 4500.00),
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'mtgbuyer' AND o.order_date = '2025-10-10 09:45:00+00' AND us.username = 'rarefinds'),
- (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' LIMIT 1),
- 1, 150.00),
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'cardcollector' AND o.order_date = '2025-10-18 16:20:00+00' AND us.username = 'rarefinds'),
- (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'rarefinds' AND c.name = 'Briar' AND c.set_name = 'Tales of Aria' LIMIT 1),
- 1, 150.00),
-((SELECT so.sub_order_id FROM sub_orders so 
-	 JOIN orders o ON o.order_id = so.order_id 
-	 JOIN users ub ON ub.user_id = o.buyer_id 
-	 JOIN users us ON us.user_id = so.seller_id 
-	 WHERE ub.username = 'cardcollector' AND o.order_date = '2025-10-18 16:20:00+00' AND us.username = 'rarefinds'),
- (SELECT p.product_id FROM products p 
-	 JOIN users us ON us.user_id = p.seller_id 
-	 JOIN cards c ON c.card_id = p.card_id 
-	 WHERE us.username = 'rarefinds' AND c.name = 'Monkey D. Luffy' AND c.set_name = 'Romance Dawn' LIMIT 1),
- 1, 45.00);
+  JOIN users us ON us.user_id = p.seller_id 
+  JOIN cards c ON c.card_id = p.card_id 
+  WHERE us.username = 'rarefinds' AND c.name = 'Monkey D. Luffy' AND c.set_name = 'Romance Dawn' LIMIT 1),
+ '2025-10-18 16:20:00+00',
+ '15 Rue de Seine, 75006 Paris, France',
+ 8.00,
+ 53.00,
+ NULL,
+ NULL,
+ NULL,
+ 'pending');
 
 -- +goose Down
 -- Clean up all data in reverse order of dependencies
-DELETE FROM order_items;
-DELETE FROM sub_orders;
 DELETE FROM orders;
 DELETE FROM products;
 DELETE FROM cards;

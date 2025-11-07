@@ -49,13 +49,17 @@ func (s *FiberServer) RegisterFiberRoutes() {
 	api.Put("/cards/:id", s.updateCardHandler)
 	api.Delete("/cards/:id", s.deleteCardHandler)
 
-	api.Post("/orders", s.createOrderHandler)
-
 	api.Get("/products", s.ListProductsHandler)
 	api.Post("/products", s.CreateProductHandler)
 	api.Get("/products/:id", s.GetProductByIDHandler)
 	api.Put("/products/:id", s.UpdateProductHandler)
 	api.Delete("/products/:id", s.DeleteProductHandler)
+
+	api.Get("/orders", s.ListOrdersHandler)
+	api.Get("/orders/:id", s.GetOrderByIDHandler)
+	api.Post("/orders", s.CreateOrderHandler)
+	api.Put("/orders/:id", s.UpdateOrderHandler)
+	api.Delete("/orders/:id", s.DeleteOrderHandler)
 
 }
 
@@ -237,6 +241,86 @@ func (s *FiberServer) GetProductByIDHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"product": product})
 }
 
-func (s *FiberServer) createOrderHandler(c *fiber.Ctx) error {
+func (s *FiberServer) ListOrdersHandler(c *fiber.Ctx) error {
+	orders, err := s.db.ListOrders()
+	if err != nil {
+		return c.SendString(err.Error())
+	}
+	return c.JSON(fiber.Map{"orders": orders})
+}
+
+func (s *FiberServer) GetOrderByIDHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	orderID, err := strconv.Atoi(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid order ID",
+		})
+	}
+	order, err := s.db.GetOrderByID(orderID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Order not found",
+		})
+	}
+	return c.JSON(fiber.Map{"order": order})
+}
+
+func (s *FiberServer) CreateOrderHandler(c *fiber.Ctx) error {
+	var order database.OrderRequest
+	if err := c.BodyParser(&order); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if err := s.db.CreateOrder(order); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create order",
+		})
+	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "order accepted"})
+}
+
+func (s *FiberServer) UpdateOrderHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	orderID, err := strconv.Atoi(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid order ID",
+		})
+	}
+
+	var order database.OrderRequest
+	if err := c.BodyParser(&order); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if err := s.db.UpdateOrder(orderID, order); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update order",
+		})
+	}
+	return c.JSON(fiber.Map{"message": "order updated"})
+}
+
+func (s *FiberServer) DeleteOrderHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	orderID, err := strconv.Atoi(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid order ID",
+		})
+	}
+
+	err = s.db.DeleteOrder(orderID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete order",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "order deleted"})
 }

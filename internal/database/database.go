@@ -60,6 +60,39 @@ type ProductRequest struct {
 	LanguageID  int     `json:"language_id"`
 }
 
+type Order struct {
+	OrderID         int        `json:"order_id"`
+	Buyer           string     `json:"buyer"`
+	Seller          string     `json:"seller"`
+	Quantity        int        `json:"quantity"`
+	Product         string     `json:"product"`
+	OrderDate       time.Time  `json:"order_date"`
+	ShippingAddress string     `json:"shipping_address"`
+	ShippingCost    float64    `json:"shipping_cost"`
+	Total           float64    `json:"total"`
+	Status          string     `json:"status"`
+	TrackingNumber  *string    `json:"tracking_number,omitempty"`
+	ShippedAt       *time.Time `json:"shipped_at,omitempty"`
+	DeliveredAt     *time.Time `json:"delivered_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+type OrderRequest struct {
+	BuyerID         int        `json:"buyer_id"`
+	SellerID        int        `json:"seller_id"`
+	Quantity        int        `json:"quantity"`
+	ProductID       int        `json:"product_id"`
+	OrderDate       time.Time  `json:"order_date"`
+	Total           float64    `json:"total"`
+	ShippingAddress string     `json:"shipping_address"`
+	ShippingCost    float64    `json:"shipping_cost"`
+	TrackingNumber  *string    `json:"tracking_number,omitempty"`
+	ShippedAt       *time.Time `json:"shipped_at,omitempty"`
+	DeliveredAt     *time.Time `json:"delivered_at,omitempty"`
+	Status          string     `json:"status"`
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -83,6 +116,12 @@ type Service interface {
 	CreateProduct(product ProductRequest) error
 	UpdateProduct(productID int, product ProductRequest) error
 	DeleteProduct(productID int) error
+
+	ListOrders() ([]Order, error)
+	GetOrderByID(orderID int) (Order, error)
+	CreateOrder(order OrderRequest) error
+	UpdateOrder(orderID int, order OrderRequest) error
+	DeleteOrder(orderID int) error
 }
 
 type service struct {
@@ -189,6 +228,9 @@ func (s *service) ListCards() ([]Card, error) {
 		}
 		cards = append(cards, card)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return cards, nil
 }
 
@@ -267,6 +309,9 @@ func (s *service) ListProducts() ([]Product, error) {
 		}
 		products = append(products, product)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return products, nil
 }
 
@@ -312,6 +357,88 @@ func (s *service) DeleteProduct(productID int) error {
 	query := `DELETE FROM products WHERE product_id = $1`
 
 	result, err := s.db.Exec(query, productID)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (s *service) ListOrders() ([]Order, error) {
+	query := `SELECT o.order_id, buyers.username AS buyer, sellers.username AS seller, o.quantity, c.name AS product, o.order_date, o.shipping_address, o.shipping_cost, o.total_amount, o.tracking_number, o.shipped_at, o.delivered_at, o.status, o.created_at, o.updated_at FROM orders o JOIN users buyers ON o.buyer_id = buyers.user_id JOIN users sellers ON o.seller_id = sellers.user_id JOIN products product ON o.product_id = product.product_id JOIN cards c ON product.card_id = c.card_id`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []Order
+	for rows.Next() {
+		var order Order
+		if err := rows.Scan(&order.OrderID, &order.Buyer, &order.Seller, &order.Quantity, &order.Product, &order.OrderDate, &order.ShippingAddress, &order.ShippingCost, &order.Total, &order.TrackingNumber, &order.ShippedAt, &order.DeliveredAt, &order.Status, &order.CreatedAt, &order.UpdatedAt); err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return orders, nil
+}
+
+func (s *service) GetOrderByID(orderID int) (Order, error) {
+	var order Order
+	query := `SELECT o.order_id, buyers.username AS buyer, sellers.username AS seller, o.quantity, c.name AS product, o.order_date, o.shipping_address, o.shipping_cost, o.total_amount, o.tracking_number, o.shipped_at, o.delivered_at, o.status, o.created_at, o.updated_at FROM orders o JOIN users buyers ON o.buyer_id = buyers.user_id JOIN users sellers ON o.seller_id = sellers.user_id JOIN products product ON o.product_id = product.product_id JOIN cards c ON product.card_id = c.card_id WHERE o.order_id = $1`
+	err := s.db.QueryRow(query, orderID).Scan(&order.OrderID, &order.Buyer, &order.Seller, &order.Quantity, &order.Product, &order.OrderDate, &order.ShippingAddress, &order.ShippingCost, &order.Total, &order.TrackingNumber, &order.ShippedAt, &order.DeliveredAt, &order.Status, &order.CreatedAt, &order.UpdatedAt)
+	if err != nil {
+		return Order{}, err
+	}
+	return order, nil
+}
+
+func (s *service) CreateOrder(order OrderRequest) error {
+	query := `INSERT INTO orders (buyer_id, seller_id, product_id, quantity, order_date, shipping_address, shipping_cost, total_amount, tracking_number, shipped_at, delivered_at, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+	_, err := s.db.Exec(query, order.BuyerID, order.SellerID, order.ProductID, order.Quantity, order.OrderDate, order.ShippingAddress, order.ShippingCost, order.Total, order.TrackingNumber, order.ShippedAt, order.DeliveredAt, order.Status)
+	return err
+}
+
+func (s *service) UpdateOrder(orderID int, order OrderRequest) error {
+	query := `UPDATE orders SET buyer_id = $1, seller_id = $2, product_id = $3, quantity = $4, order_date = $5, shipping_address = $6, shipping_cost = $7, total_amount = $8, tracking_number = $9, shipped_at = $10, delivered_at = $11, status = $12, updated_at = CURRENT_TIMESTAMP WHERE order_id = $13`
+
+	result, err := s.db.Exec(query, order.BuyerID, order.SellerID, order.ProductID, order.Quantity, order.OrderDate, order.ShippingAddress, order.ShippingCost, order.Total, order.TrackingNumber, order.ShippedAt, order.DeliveredAt, order.Status, orderID)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (s *service) DeleteOrder(orderID int) error {
+	query := `DELETE FROM orders WHERE order_id = $1`
+
+	result, err := s.db.Exec(query, orderID)
 
 	if err != nil {
 		return err
