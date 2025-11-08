@@ -61,6 +61,12 @@ func (s *FiberServer) RegisterFiberRoutes() {
 	api.Put("/orders/:id", s.UpdateOrderHandler)
 	api.Delete("/orders/:id", s.DeleteOrderHandler)
 
+	api.Get("/users", s.ListUsersHandler)
+	api.Post("/users", s.CreateUserHandler)
+	api.Get("/users/:id", s.GetUserByIDHandler)
+	api.Put("/users/:id", s.UpdateUserHandler)
+	api.Delete("/users/:id", s.DeleteUserHandler)
+
 }
 
 func (s *FiberServer) HelloWorldHandler(c *fiber.Ctx) error {
@@ -323,4 +329,89 @@ func (s *FiberServer) DeleteOrderHandler(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "order deleted"})
+}
+
+func (s *FiberServer) ListUsersHandler(c *fiber.Ctx) error {
+	users, err := s.db.ListUsers()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch users",
+		})
+	}
+	return c.JSON(fiber.Map{"users": users})
+}
+
+func (s *FiberServer) GetUserByIDHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+	user, err := s.db.GetUserByID(userID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+	return c.JSON(fiber.Map{"user": user})
+}
+
+func (s *FiberServer) CreateUserHandler(c *fiber.Ctx) error {
+	var user database.UserRequest
+	if err := c.BodyParser(&user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	if err := s.db.CreateUser(user); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create user",
+		})
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "user created"})
+}
+
+func (s *FiberServer) UpdateUserHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	var user database.UserRequest
+	if err := c.BodyParser(&user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if err := s.db.UpdateUser(userID, user); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update user",
+		})
+	}
+	return c.JSON(fiber.Map{"message": "user updated"})
+}
+
+func (s *FiberServer) DeleteUserHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	err = s.db.DeleteUser(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete user",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "user deleted"})
 }

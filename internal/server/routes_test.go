@@ -28,6 +28,11 @@ type MockDBService struct {
 	CreateOrderFunc    func(order database.OrderRequest) error
 	UpdateOrderFunc    func(orderID int, order database.OrderRequest) error
 	DeleteOrderFunc    func(orderID int) error
+	ListUsersFunc      func() ([]database.User, error)
+	GetUserByIDFunc    func(userID int) (database.User, error)
+	CreateUserFunc     func(user database.UserRequest) error
+	UpdateUserFunc     func(userID int, user database.UserRequest) error
+	DeleteUserFunc     func(userID int) error
 }
 
 func (m *MockDBService) Close() error {
@@ -139,6 +144,41 @@ func (m *MockDBService) UpdateOrder(orderID int, order database.OrderRequest) er
 func (m *MockDBService) DeleteOrder(orderID int) error {
 	if m.DeleteOrderFunc != nil {
 		return m.DeleteOrderFunc(orderID)
+	}
+	return nil
+}
+
+func (m *MockDBService) ListUsers() ([]database.User, error) {
+	if m.ListUsersFunc != nil {
+		return m.ListUsersFunc()
+	}
+	return []database.User{}, nil
+}
+
+func (m *MockDBService) GetUserByID(userID int) (database.User, error) {
+	if m.GetUserByIDFunc != nil {
+		return m.GetUserByIDFunc(userID)
+	}
+	return database.User{}, nil
+}
+
+func (m *MockDBService) CreateUser(user database.UserRequest) error {
+	if m.CreateUserFunc != nil {
+		return m.CreateUserFunc(user)
+	}
+	return nil
+}
+
+func (m *MockDBService) UpdateUser(userID int, user database.UserRequest) error {
+	if m.UpdateUserFunc != nil {
+		return m.UpdateUserFunc(userID, user)
+	}
+	return nil
+}
+
+func (m *MockDBService) DeleteUser(userID int) error {
+	if m.DeleteUserFunc != nil {
+		return m.DeleteUserFunc(userID)
 	}
 	return nil
 }
@@ -535,6 +575,7 @@ func TestCreateOrderHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating request. Err: %v", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -550,7 +591,7 @@ func TestCreateOrderHandler(t *testing.T) {
 		t.Fatalf("error reading response body. Err: %v", err)
 	}
 
-	expected := "{\"message\":\"order created\"}"
+	expected := "{\"message\":\"order accepted\"}"
 	if expected != string(body) {
 		t.Errorf("expected response body to be %v; got %v", expected, string(body))
 	}
@@ -581,6 +622,7 @@ func TestUpdateOrderHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating request. Err: %v", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -632,6 +674,236 @@ func TestDeleteOrderHandler(t *testing.T) {
 	}
 
 	expected := "{\"message\":\"order deleted\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestListUsersHandler(t *testing.T) {
+	users := []database.User{
+		{UserID: 1, Username: "john_doe", Email: "john@example.com", FirstName: "John", LastName: "Doe", StreetName: "23 Main St", City: "Anytown", State: "CA", ZipCode: "12345", Country: "USA", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{UserID: 2, Username: "jane_doe", Email: "jane@example.com", FirstName: "Jane", LastName: "Doe", StreetName: "24 Main St", City: "Anytown", State: "CA", ZipCode: "12345", Country: "USA", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+	}
+	mockDB := MockDBService{
+		ListUsersFunc: func() ([]database.User, error) {
+			return users, nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Get("/api/users", s.ListUsersHandler)
+
+	req, err := http.NewRequest("GET", "/api/users", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+	bytes, err := json.Marshal(users)
+	if err != nil {
+		t.Fatalf("error marshalling users. Err: %v", err)
+	}
+
+	expected := "{\"users\":" + string(bytes) + "}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestGetUserByIDHandler(t *testing.T) {
+	singleUser := database.User{UserID: 1, Username: "john_doe", Email: "john@example.com", FirstName: "John", LastName: "Doe", StreetName: "23 Main St", City: "Anytown", State: "CA", ZipCode: "12345", Country: "USA", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	mockDB := MockDBService{
+		GetUserByIDFunc: func(userID int) (database.User, error) {
+			return singleUser, nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Get("/api/users/:id", s.GetUserByIDHandler)
+
+	req, err := http.NewRequest("GET", "/api/users/1", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+	bytes, err := json.Marshal(singleUser)
+	if err != nil {
+		t.Fatalf("error marshalling user. Err: %v", err)
+	}
+
+	expected := "{\"user\":" + string(bytes) + "}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestCreateUserHandler(t *testing.T) {
+	mockDB := MockDBService{
+		CreateUserFunc: func(user database.UserRequest) error {
+			return nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Post("/api/users", s.CreateUserHandler)
+
+	userRequest := database.UserRequest{
+		Username:     "john_doe",
+		Email:        "john@example.com",
+		Password:     "newpassword",
+		FirstName:    "John",
+		LastName:     "Doe",
+		StreetName:   "Main St",
+		StreetNumber: "23",
+		City:         "Anytown",
+		State:        "CA",
+		ZipCode:      "12345",
+		SellerType:   "powerseller",
+		LanguageID:   1,
+		CountryID:    1,
+	}
+	userRequestBytes, err := json.Marshal(userRequest)
+	if err != nil {
+		t.Fatalf("error marshalling user request. Err: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/users", strings.NewReader(string(userRequestBytes)))
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("expected status Created; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"user created\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestUpdateUserHandler(t *testing.T) {
+	mockDB := MockDBService{
+		UpdateUserFunc: func(userID int, user database.UserRequest) error {
+			return nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Put("/api/users/:id", s.UpdateUserHandler)
+
+	userRequest := database.UserRequest{
+		Username:     "john_doe_updated",
+		Email:        "john_updated@example.com",
+		Password:     "updatedpassword",
+		FirstName:    "John",
+		LastName:     "Doe",
+		StreetName:   "Main St",
+		StreetNumber: "23",
+		City:         "Anytown",
+		State:        "CA",
+		ZipCode:      "12345",
+		SellerType:   "powerseller",
+		LanguageID:   1,
+		CountryID:    1,
+	}
+	userRequestBytes, err := json.Marshal(userRequest)
+	if err != nil {
+		t.Fatalf("error marshalling user request. Err: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/users/1", strings.NewReader(string(userRequestBytes)))
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"user updated\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestDeleteUserHandler(t *testing.T) {
+	mockDB := MockDBService{
+		DeleteUserFunc: func(userID int) error {
+			return nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Delete("/api/users/:id", s.DeleteUserHandler)
+
+	req, err := http.NewRequest("DELETE", "/api/users/1", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"user deleted\"}"
 	if expected != string(body) {
 		t.Errorf("expected response body to be %v; got %v", expected, string(body))
 	}
