@@ -28,28 +28,28 @@ INSERT INTO tcg_games (name) VALUES
 ('One Piece Card Game');
 
 -- Users (mix of buyers and sellers)
-INSERT INTO users (username, email, password_hash, first_name, last_name, street_name, house_number, postal_code, city, seller_type, country_id, language_id) VALUES
-('magicdealer', 'dealer@example.com', '$2a$12$tPpK2HKTiNJAhWPX9zK9NOD0txn0OZKGb1kTF8TCr3MmTNP4gHzcu', 'Thomas', 'Wilson', 'Oak Street', '42', '10115', 'Berlin', 'professional',
+INSERT INTO users (username, email, password_hash, first_name, last_name, street_name, street_number, city, state, zip_code, seller_type, country_id, language_id) VALUES
+('magicdealer', 'dealer@example.com', '$2a$12$tPpK2HKTiNJAhWPX9zK9NOD0txn0OZKGb1kTF8TCr3MmTNP4gHzcu', 'Thomas', 'Wilson', 'Oak Street', '42', 'Berlin', 'Berlin', '10115', 'professional',
 	(SELECT country_id FROM countries WHERE country_code = 'DE'),
 	(SELECT language_id FROM languages WHERE language_code = 'DE')
 ),
-('cardcollector', 'collector@example.com', '$2a$12$CLkNQFCY9fPEGBN1FgZ6ZugGmCzZxNBsRUmYOiVDa7jBvX/geB.zS', 'Marie', 'Dubois', 'Rue de Seine', '15', '75006', 'Paris', 'private',
+('cardcollector', 'collector@example.com', '$2a$12$CLkNQFCY9fPEGBN1FgZ6ZugGmCzZxNBsRUmYOiVDa7jBvX/geB.zS', 'Marie', 'Dubois', 'Rue de Seine', '15', 'Paris', 'Île-de-France', '75006', 'private',
 	(SELECT country_id FROM countries WHERE country_code = 'FR'),
 	(SELECT language_id FROM languages WHERE language_code = 'FR')
 ),
-('powertcg', 'power@example.com', '$2a$12$xKlPVnpyN8/rS6VdZQu9n.36dNvD0d1XRdEhqXZF4KC0H.CKWleca', 'Alex', 'Johnson', 'High Street', '27', 'EC1V 7JN', 'London', 'powerseller',
+('powertcg', 'power@example.com', '$2a$12$xKlPVnpyN8/rS6VdZQu9n.36dNvD0d1XRdEhqXZF4KC0H.CKWleca', 'Alex', 'Johnson', 'High Street', '27', 'London', 'England', 'EC1V 7JN', 'powerseller',
 	(SELECT country_id FROM countries WHERE country_code = 'GB'),
 	(SELECT language_id FROM languages WHERE language_code = 'EN')
 ),
-('casualplayer', 'casual@example.com', '$2a$12$hW6mK9Oq4RzOXF5ciV2Rue9OBG1YB4kA8nMhnA.jQ99S4WKrTmzne', 'Carlos', 'Gonzalez', 'Calle Mayor', '8', '28013', 'Madrid', 'private',
+('casualplayer', 'casual@example.com', '$2a$12$hW6mK9Oq4RzOXF5ciV2Rue9OBG1YB4kA8nMhnA.jQ99S4WKrTmzne', 'Carlos', 'Gonzalez', 'Calle Mayor', '8', 'Madrid', 'Madrid', '28013', 'private',
 	(SELECT country_id FROM countries WHERE country_code = 'ES'),
 	(SELECT language_id FROM languages WHERE language_code = 'ES')
 ),
-('mtgbuyer', 'buyer@example.com', '$2a$12$T.b4WAjmc6c/1xKgz9MsSOcbkZgRJHJ7UzgKjKJQbPA5S8D6/slKi', 'Emma', 'Brown', 'Maple Avenue', '103', 'M5V 2A4', 'Toronto', 'private',
+('mtgbuyer', 'buyer@example.com', '$2a$12$T.b4WAjmc6c/1xKgz9MsSOcbkZgRJHJ7UzgKjKJQbPA5S8D6/slKi', 'Emma', 'Brown', 'Maple Avenue', '103', 'Toronto', 'Ontario', 'M5V 2A4', 'private',
 	(SELECT country_id FROM countries WHERE country_code = 'CA'),
 	(SELECT language_id FROM languages WHERE language_code = 'EN')
 ),
-('rarefinds', 'rare@example.com', '$2a$12$5YhKx1ksZat7KklT.LMWweo8A3vBSY96LP0B1NeRNEMxiBPZZ1gsS', 'Takashi', 'Yamamoto', 'Sakura Street', '5-2', '150-0043', 'Tokyo', 'professional',
+('rarefinds', 'rare@example.com', '$2a$12$5YhKx1ksZat7KklT.LMWweo8A3vBSY96LP0B1NeRNEMxiBPZZ1gsS', 'Takashi', 'Yamamoto', 'Sakura Street', '5-2', 'Tokyo', 'Tokyo', '150-0043', 'professional',
 	(SELECT country_id FROM countries WHERE country_code = 'JP'),
 	(SELECT language_id FROM languages WHERE language_code = 'JP')
 );

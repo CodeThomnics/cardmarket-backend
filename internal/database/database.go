@@ -93,6 +93,40 @@ type OrderRequest struct {
 	Status          string     `json:"status"`
 }
 
+type User struct {
+	UserID       int       `json:"user_id"`
+	Username     string    `json:"username"`
+	Email        string    `json:"email"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	StreetName   string    `json:"street_name"`
+	StreetNumber string    `json:"street_number"`
+	City         string    `json:"city"`
+	State        string    `json:"state"`
+	ZipCode      string    `json:"zip_code"`
+	SellerType   string    `json:"seller_type"`
+	Country      string    `json:"country"`
+	Language     string    `json:"language"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type UserRequest struct {
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	Password     string `json:"password"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	StreetName   string `json:"street_name"`
+	StreetNumber string `json:"street_number"`
+	City         string `json:"city"`
+	State        string `json:"state"`
+	ZipCode      string `json:"zip_code"`
+	SellerType   string `json:"seller_type"`
+	CountryID    int    `json:"country_id"`
+	LanguageID   int    `json:"language_id"`
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -122,6 +156,12 @@ type Service interface {
 	CreateOrder(order OrderRequest) error
 	UpdateOrder(orderID int, order OrderRequest) error
 	DeleteOrder(orderID int) error
+
+	ListUsers() ([]User, error)
+	GetUserByID(userID int) (User, error)
+	CreateUser(user UserRequest) error
+	UpdateUser(userID int, user UserRequest) error
+	DeleteUser(userID int) error
 }
 
 type service struct {
@@ -439,6 +479,85 @@ func (s *service) DeleteOrder(orderID int) error {
 	query := `DELETE FROM orders WHERE order_id = $1`
 
 	result, err := s.db.Exec(query, orderID)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (s *service) ListUsers() ([]User, error) {
+	rows, err := s.db.Query("SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.street_name, u.street_number, u.city, u.state, u.zip_code, u.seller_type, c.country_name, l.language_name, u.created_at, u.updated_at FROM users u JOIN countries c ON u.country_id = c.country_id JOIN languages l ON u.language_id = l.language_id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []User
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.UserID, &user.Username, &user.Email, &user.FirstName, &user.LastName, &user.StreetName, &user.StreetNumber, &user.City, &user.State, &user.ZipCode, &user.SellerType, &user.Country, &user.Language, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (s *service) GetUserByID(userID int) (User, error) {
+	var user User
+	err := s.db.QueryRow("SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.street_name, u.street_number, u.city, u.state, u.zip_code, u.seller_type, c.country_name, l.language_name, u.created_at, u.updated_at FROM users u JOIN countries c ON u.country_id = c.country_id JOIN languages l ON u.language_id = l.language_id WHERE u.user_id = $1", userID).Scan(&user.UserID, &user.Username, &user.Email, &user.FirstName, &user.LastName, &user.StreetName, &user.StreetNumber, &user.City, &user.State, &user.ZipCode, &user.SellerType, &user.Country, &user.Language, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+func (s *service) CreateUser(user UserRequest) error {
+	query := `INSERT INTO users (username, email, password, first_name, last_name, street_name, street_number, city, state, zip_code, seller_type, country_id, language_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+	_, err := s.db.Exec(query, user.Username, user.Email, user.Password, user.FirstName, user.LastName, user.StreetName, user.StreetNumber, user.City, user.State, user.ZipCode, user.SellerType, user.CountryID, user.LanguageID)
+	return err
+}
+
+func (s *service) UpdateUser(userID int, user UserRequest) error {
+	query := `UPDATE users SET username = $1, email = $2, password = $3, first_name = $4, last_name = $5, street_name = $6, street_number = $7, city = $8, state = $9, zip_code = $10, seller_type = $11, country_id = $12, language_id = $13, updated_at = CURRENT_TIMESTAMP WHERE user_id = $14`
+
+	result, err := s.db.Exec(query, user.Username, user.Email, user.Password, user.FirstName, user.LastName, user.StreetName, user.StreetNumber, user.City, user.State, user.ZipCode, user.CountryID, user.LanguageID, userID)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (s *service) DeleteUser(userID int) error {
+	query := `DELETE FROM users WHERE user_id = $1`
+
+	result, err := s.db.Exec(query, userID)
 
 	if err != nil {
 		return err
