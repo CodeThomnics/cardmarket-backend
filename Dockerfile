@@ -1,4 +1,4 @@
-FROM golang:1.25.3-alpine AS build
+FROM golang:1.25.5-alpine AS build
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY . .
 
 RUN go build -o main cmd/api/main.go
 
-FROM golang:1.25.3-alpine AS dev
+FROM golang:1.25.5-alpine AS dev
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ COPY . .
 EXPOSE ${PORT}
 CMD ["air", "-c", ".air.toml"]
 
-FROM alpine:3.22.0 AS prod
+FROM alpine:3.23.0 AS prod
 WORKDIR /app
 COPY --from=build /app/main /app/main
 EXPOSE ${PORT}
