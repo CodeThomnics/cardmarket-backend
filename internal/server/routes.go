@@ -2,6 +2,7 @@ package server
 
 import (
 	"cardmarket_backend/internal/database"
+	"database/sql"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,7 +20,7 @@ func (s *FiberServer) RegisterFiberRoutes() {
 
 	// Apply CSRF middleware
 	s.App.Use(csrf.New(csrf.Config{
-		CookieName:        "__Host-csrf_",
+		CookieName:        "csrf_",
 		CookieSameSite:    "Lax",
 		CookieSecure:      true,
 		CookieSessionOnly: true,
@@ -83,9 +84,12 @@ func (s *FiberServer) healthHandler(c *fiber.Ctx) error {
 
 func (s *FiberServer) listCardsHandler(c *fiber.Ctx) error {
 	cards, err := s.db.ListCards()
+	if err == database.ErrNoCards {
+		return c.JSON(fiber.Map{"cards": []database.Card{}, "error": "no cards found"})
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch cards",
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"cards": cards})
@@ -100,7 +104,7 @@ func (s *FiberServer) createCardHandler(c *fiber.Ctx) error {
 	}
 	if err := s.db.CreateCard(card); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create card",
+			"error": err.Error(),
 		})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "card created"})
@@ -115,9 +119,14 @@ func (s *FiberServer) getCardByIDHandler(c *fiber.Ctx) error {
 		})
 	}
 	card, err := s.db.GetCardByID(cardID)
-	if err != nil {
+	if err == database.ErrNoCardFound {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Card not found",
+			"error": "card not found",
+		})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"card": card})
@@ -134,10 +143,22 @@ func (s *FiberServer) updateCardHandler(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&card); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
 	}
 
-	s.db.UpdateCard(cardID, card)
+	err = s.db.UpdateCard(cardID, card)
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "card could not be updated",
+		})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
 	return c.JSON(fiber.Map{"message": "card updated"})
 }
@@ -152,9 +173,14 @@ func (s *FiberServer) deleteCardHandler(c *fiber.Ctx) error {
 	}
 
 	err = s.db.DeleteCard(cardID)
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "card could not be deleted",
+		})
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete card",
+			"error": err.Error(),
 		})
 	}
 
@@ -163,9 +189,12 @@ func (s *FiberServer) deleteCardHandler(c *fiber.Ctx) error {
 
 func (s *FiberServer) ListProductsHandler(c *fiber.Ctx) error {
 	products, err := s.db.ListProducts()
+	if err == database.ErrNoProducts {
+		return c.JSON(fiber.Map{"products": []database.Product{}, "error": "no products found"})
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch products",
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"products": products})
@@ -179,9 +208,17 @@ func (s *FiberServer) CreateProductHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := s.db.CreateProduct(product); err != nil {
+	err := s.db.CreateProduct(product)
+
+	if err == sql.ErrNoRows {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create product",
+			"error": "product could not be created",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "product created"})
@@ -197,15 +234,26 @@ func (s *FiberServer) UpdateProductHandler(c *fiber.Ctx) error {
 	}
 
 	var product database.ProductRequest
-	if err := c.BodyParser(&product); err != nil {
+
+	err = c.BodyParser(&product)
+
+	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := s.db.UpdateProduct(productID, product); err != nil {
+	err = s.db.UpdateProduct(productID, product)
+
+	if err == sql.ErrNoRows {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update product",
+			"error": "product could not be updated",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"message": "product updated"})
@@ -221,9 +269,16 @@ func (s *FiberServer) DeleteProductHandler(c *fiber.Ctx) error {
 	}
 
 	err = s.db.DeleteProduct(productID)
+
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "product could not be deleted",
+		})
+	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete product",
+			"error": err.Error(),
 		})
 	}
 
@@ -239,9 +294,16 @@ func (s *FiberServer) GetProductByIDHandler(c *fiber.Ctx) error {
 		})
 	}
 	product, err := s.db.GetProductByID(productID)
-	if err != nil {
+
+	if err == database.ErrNoProductFound {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Product not found",
+			"error": "product not found",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"product": product})
@@ -249,8 +311,15 @@ func (s *FiberServer) GetProductByIDHandler(c *fiber.Ctx) error {
 
 func (s *FiberServer) ListOrdersHandler(c *fiber.Ctx) error {
 	orders, err := s.db.ListOrders()
+
+	if err == database.ErrNoOrders {
+		return c.JSON(fiber.Map{"orders": []database.Order{}, "error": "no orders found"})
+	}
+
 	if err != nil {
-		return c.SendString(err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 	return c.JSON(fiber.Map{"orders": orders})
 }
@@ -264,9 +333,16 @@ func (s *FiberServer) GetOrderByIDHandler(c *fiber.Ctx) error {
 		})
 	}
 	order, err := s.db.GetOrderByID(orderID)
-	if err != nil {
+
+	if err == database.ErrNoOrderFound {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Order not found",
+			"error": "order not found",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"order": order})
@@ -280,9 +356,17 @@ func (s *FiberServer) CreateOrderHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := s.db.CreateOrder(order); err != nil {
+	err := s.db.CreateOrder(order)
+
+	if err == sql.ErrNoRows {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create order",
+			"error": "order could not be created",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "order accepted"})
@@ -304,9 +388,17 @@ func (s *FiberServer) UpdateOrderHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	err = s.db.UpdateOrder(orderID, order)
+
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "order could not be updated",
+		})
+	}
+
 	if err := s.db.UpdateOrder(orderID, order); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update order",
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"message": "order updated"})
@@ -322,9 +414,16 @@ func (s *FiberServer) DeleteOrderHandler(c *fiber.Ctx) error {
 	}
 
 	err = s.db.DeleteOrder(orderID)
+
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "order could not be deleted",
+		})
+	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete order",
+			"error": err.Error(),
 		})
 	}
 
@@ -333,9 +432,13 @@ func (s *FiberServer) DeleteOrderHandler(c *fiber.Ctx) error {
 
 func (s *FiberServer) ListUsersHandler(c *fiber.Ctx) error {
 	users, err := s.db.ListUsers()
+	if err == database.ErrNoUsers {
+		return c.JSON(fiber.Map{"users": []database.User{}, "error": "no users found"})
+	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch users",
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"users": users})
@@ -350,9 +453,15 @@ func (s *FiberServer) GetUserByIDHandler(c *fiber.Ctx) error {
 		})
 	}
 	user, err := s.db.GetUserByID(userID)
-	if err != nil {
+
+	if err == database.ErrNoUserFound {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
+			"error": "user not found",
+		})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"user": user})
@@ -367,7 +476,7 @@ func (s *FiberServer) CreateUserHandler(c *fiber.Ctx) error {
 	}
 	if err := s.db.CreateUser(user); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create user",
+			"error": err.Error(),
 		})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "user created"})
@@ -383,15 +492,24 @@ func (s *FiberServer) UpdateUserHandler(c *fiber.Ctx) error {
 	}
 
 	var user database.UserRequest
+
 	if err := c.BodyParser(&user); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := s.db.UpdateUser(userID, user); err != nil {
+	err = s.db.UpdateUser(userID, user)
+
+	if err == sql.ErrNoRows {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update user",
+			"error": "user could not be updated",
+		})
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 	return c.JSON(fiber.Map{"message": "user updated"})
@@ -407,9 +525,16 @@ func (s *FiberServer) DeleteUserHandler(c *fiber.Ctx) error {
 	}
 
 	err = s.db.DeleteUser(userID)
+
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "user could not be deleted",
+		})
+	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete user",
+			"error": err.Error(),
 		})
 	}
 
