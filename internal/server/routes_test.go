@@ -478,7 +478,7 @@ func TestListOrdersHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Get("/api/orders", s.ListOrdersHandler)
+	app.Get("/api/orders", s.listOrdersHandler)
 
 	req, err := http.NewRequest("GET", "/api/orders", nil)
 	if err != nil {
@@ -519,7 +519,7 @@ func TestGetOrderByIDHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Get("/api/orders/:id", s.GetOrderByIDHandler)
+	app.Get("/api/orders/:id", s.getOrderByIDHandler)
 
 	req, err := http.NewRequest("GET", "/api/orders/1", nil)
 	if err != nil {
@@ -558,7 +558,7 @@ func TestCreateOrderHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Post("/api/orders", s.CreateOrderHandler)
+	app.Post("/api/orders", s.createOrderHandler)
 
 	orderRequest := database.OrderRequest{
 		BuyerID:   1,
@@ -605,7 +605,7 @@ func TestUpdateOrderHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Put("/api/orders/:id", s.UpdateOrderHandler)
+	app.Put("/api/orders/:id", s.updateOrderHandler)
 
 	orderRequest := database.OrderRequest{
 		BuyerID:   1,
@@ -652,7 +652,7 @@ func TestDeleteOrderHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Delete("/api/orders/:id", s.DeleteOrderHandler)
+	app.Delete("/api/orders/:id", s.deleteOrderHandler)
 
 	req, err := http.NewRequest("DELETE", "/api/orders/1", nil)
 	if err != nil {
@@ -691,7 +691,7 @@ func TestListUsersHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Get("/api/users", s.ListUsersHandler)
+	app.Get("/api/users", s.listUsersHandler)
 
 	req, err := http.NewRequest("GET", "/api/users", nil)
 	if err != nil {
@@ -731,7 +731,7 @@ func TestGetUserByIDHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Get("/api/users/:id", s.GetUserByIDHandler)
+	app.Get("/api/users/:id", s.getUserByIDHandler)
 
 	req, err := http.NewRequest("GET", "/api/users/1", nil)
 	if err != nil {
@@ -770,7 +770,7 @@ func TestCreateUserHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Post("/api/users", s.CreateUserHandler)
+	app.Post("/api/users", s.createUserHandler)
 
 	userRequest := database.UserRequest{
 		Username:     "john_doe",
@@ -826,7 +826,7 @@ func TestUpdateUserHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Put("/api/users/:id", s.UpdateUserHandler)
+	app.Put("/api/users/:id", s.updateUserHandler)
 
 	userRequest := database.UserRequest{
 		Username:     "john_doe_updated",
@@ -882,7 +882,7 @@ func TestDeleteUserHandler(t *testing.T) {
 	}
 	app := fiber.New()
 	s := &FiberServer{App: app, db: &mockDB}
-	app.Delete("/api/users/:id", s.DeleteUserHandler)
+	app.Delete("/api/users/:id", s.deleteUserHandler)
 
 	req, err := http.NewRequest("DELETE", "/api/users/1", nil)
 	if err != nil {
