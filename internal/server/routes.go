@@ -3,14 +3,48 @@ package server
 import (
 	"cardmarket_backend/internal/database"
 	"database/sql"
+	"os"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/csrf"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/golang-jwt/jwt/v5"
 )
+
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func parseParam(c *fiber.Ctx, param string) (int, error) {
+	idStr := c.Params(param)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func createToken(username string) (string, error) {
+	// Create a new token object, specifying signing method and the claims
+	// you would like it to contain.
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username":   username,
+		"expiration": time.Now().Add(time.Hour * 24).Unix(),
+	})
+
+	// Sign and get the complete encoded token as a string using the secret
+	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
 
 func (s *FiberServer) RegisterFiberRoutes() {
 	// Create a session store instance
@@ -67,6 +101,9 @@ func (s *FiberServer) RegisterFiberRoutes() {
 	api.Get("/users/:id", s.getUserByIDHandler)
 	api.Put("/users/:id", s.updateUserHandler)
 	api.Delete("/users/:id", s.deleteUserHandler)
+
+	api.Post("/login", s.loginHandler)
+	api.Post("/logout", s.logoutHandler)
 }
 
 func (s *FiberServer) HelloWorldHandler(c *fiber.Ctx) error {
@@ -84,7 +121,8 @@ func (s *FiberServer) healthHandler(c *fiber.Ctx) error {
 func (s *FiberServer) listCardsHandler(c *fiber.Ctx) error {
 	cards, err := s.db.ListCards()
 	if err == database.ErrNoCards {
-		return c.JSON(fiber.Map{"cards": []database.Card{}, "error": "no cards found"})
+		return c.Status(fiber.StatusNotFound).
+			JSON(fiber.Map{"cards": []database.Card{}, "error": "no cards found"})
 	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -110,8 +148,8 @@ func (s *FiberServer) createCardHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) getCardByIDHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	cardID, err := strconv.Atoi(id)
+	cardID, err := parseParam(c, "id")
+
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid card ID",
@@ -133,8 +171,7 @@ func (s *FiberServer) getCardByIDHandler(c *fiber.Ctx) error {
 
 func (s *FiberServer) updateCardHandler(c *fiber.Ctx) error {
 	var card database.CardRequest
-	id := c.Params("id")
-	cardID, err := strconv.Atoi(id)
+	cardID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid card ID",
@@ -163,8 +200,7 @@ func (s *FiberServer) updateCardHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) deleteCardHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	cardID, err := strconv.Atoi(id)
+	cardID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid card ID",
@@ -224,8 +260,7 @@ func (s *FiberServer) createProductHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) updateProductHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	productID, err := strconv.Atoi(id)
+	productID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid product ID",
@@ -259,8 +294,7 @@ func (s *FiberServer) updateProductHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) deleteProductHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	productID, err := strconv.Atoi(id)
+	productID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid product ID",
@@ -285,8 +319,7 @@ func (s *FiberServer) deleteProductHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) getProductByIDHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	productID, err := strconv.Atoi(id)
+	productID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid product ID",
@@ -324,8 +357,7 @@ func (s *FiberServer) listOrdersHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) getOrderByIDHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	orderID, err := strconv.Atoi(id)
+	orderID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid order ID",
@@ -372,8 +404,7 @@ func (s *FiberServer) createOrderHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) updateOrderHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	orderID, err := strconv.Atoi(id)
+	orderID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid order ID",
@@ -404,8 +435,7 @@ func (s *FiberServer) updateOrderHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) deleteOrderHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	orderID, err := strconv.Atoi(id)
+	orderID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid order ID",
@@ -444,8 +474,7 @@ func (s *FiberServer) listUsersHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) getUserByIDHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	userID, err := strconv.Atoi(id)
+	userID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid user ID",
@@ -482,8 +511,7 @@ func (s *FiberServer) createUserHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) updateUserHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	userID, err := strconv.Atoi(id)
+	userID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid user ID",
@@ -515,8 +543,7 @@ func (s *FiberServer) updateUserHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) deleteUserHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	userID, err := strconv.Atoi(id)
+	userID, err := parseParam(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid user ID",
@@ -538,4 +565,34 @@ func (s *FiberServer) deleteUserHandler(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "user deleted"})
+}
+
+func (s *FiberServer) loginHandler(c *fiber.Ctx) error {
+	var request LoginRequest
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	check, err := s.db.CheckLoginCredentials(request.Username, request.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	if !check {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid credentials"})
+	}
+
+	token, err := createToken(request.Username)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "login successful", "token": token})
+}
+
+func (s *FiberServer) logoutHandler(c *fiber.Ctx) error {
+	// Placeholder for logout logic
+	return c.JSON(fiber.Map{"message": "logout successful"})
 }

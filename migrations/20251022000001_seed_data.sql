@@ -52,6 +52,10 @@ INSERT INTO users (username, email, password_hash, first_name, last_name, street
 ('rarefinds', 'rare@example.com', '$2a$12$5YhKx1ksZat7KklT.LMWweo8A3vBSY96LP0B1NeRNEMxiBPZZ1gsS', 'Takashi', 'Yamamoto', 'Sakura Street', '5-2', 'Tokyo', 'Tokyo', '150-0043', 'professional',
 	(SELECT country_id FROM countries WHERE country_code = 'JP'),
 	(SELECT language_id FROM languages WHERE language_code = 'JP')
+),
+('testuser', 'test@example.com', '$2a$12$R9h7cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jKMUm', 'Test', 'User', 'Test Street', '1', 'TestCity', 'TestState', '12345', 'private',
+	(SELECT country_id FROM countries WHERE country_code = 'NL'),
+	(SELECT language_id FROM languages WHERE language_code = 'NL')
 );
 
 -- Cards

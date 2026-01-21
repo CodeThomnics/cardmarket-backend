@@ -8,11 +8,22 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/joho/godotenv/autoload"
 )
+
+func hashPassword(password string) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedPassword), nil
+}
 
 type Card struct {
 	ID          int       `json:"id"`
@@ -125,19 +136,35 @@ type User struct {
 }
 
 type UserRequest struct {
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Password     string `json:"password"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	StreetName   string `json:"street_name"`
-	StreetNumber string `json:"street_number"`
-	City         string `json:"city"`
-	State        string `json:"state"`
-	ZipCode      string `json:"zip_code"`
-	SellerType   string `json:"seller_type"`
-	CountryID    int    `json:"country_id"`
-	LanguageID   int    `json:"language_id"`
+	Username     string  `json:"username"`
+	Email        string  `json:"email"`
+	Password     string  `json:"password"`
+	FirstName    *string `json:"first_name,omitempty"`
+	LastName     *string `json:"last_name,omitempty"`
+	StreetName   *string `json:"street_name,omitempty"`
+	StreetNumber *string `json:"street_number,omitempty"`
+	City         *string `json:"city,omitempty"`
+	State        *string `json:"state,omitempty"`
+	ZipCode      *string `json:"zip_code,omitempty"`
+	SellerType   *string `json:"seller_type,omitempty"`
+	CountryID    *int    `json:"country_id,omitempty"`
+	LanguageID   *int    `json:"language_id,omitempty"`
+}
+
+// Helper function to get string value or empty string if nil
+func strVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// Helper function to get int value or 0 if nil
+func intVal(i *int) int {
+	if i == nil {
+		return 0
+	}
+	return *i
 }
 
 // Service represents a service that interacts with a database.
@@ -175,6 +202,7 @@ type Service interface {
 	CreateUser(user UserRequest) error
 	UpdateUser(userID int, user UserRequest) error
 	DeleteUser(userID int) error
+	CheckLoginCredentials(username, password string) (bool, error)
 }
 
 type service struct {
@@ -268,10 +296,14 @@ func (s *service) Close() error {
 }
 
 func (s *service) ListCards() ([]Card, error) {
-	rows, err := s.db.Query("SELECT c.card_id, c.name, c.image_url, c.description, c.set_name, c.card_number, c.rarity, tcg.name AS tcg_game,c.created_at,c.updated_at FROM cards c JOIN tcg_games tcg ON c.tcg_game_id = tcg.tcg_game_id")
-	if err == sql.ErrNoRows {
-		return []Card{}, ErrNoCards
+	query := "SELECT c.card_id, c.name, c.image_url, c.description, c.set_name, c.card_number, c.rarity, tcg.name AS tcg_game,c.created_at,c.updated_at FROM cards c JOIN tcg_games tcg ON c.tcg_game_id = tcg.tcg_game_id"
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
@@ -292,7 +324,14 @@ func (s *service) ListCards() ([]Card, error) {
 
 func (s *service) GetCardByID(cardID int) (Card, error) {
 	var card Card
-	err := s.db.QueryRow("SELECT c.card_id, c.name, c.image_url, c.description, c.set_name, c.card_number, c.rarity, tcg.name AS tcg_game,c.created_at,c.updated_at FROM cards c JOIN tcg_games tcg ON c.tcg_game_id = tcg.tcg_game_id WHERE c.card_id = $1", cardID).Scan(&card.ID, &card.Name, &card.ImageURL, &card.Description, &card.SetName, &card.CardNumber, &card.Rarity, &card.TCGGame, &card.CreatedAt, &card.UpdatedAt)
+	query := "SELECT c.card_id, c.name, c.image_url, c.description, c.set_name, c.card_number, c.rarity, tcg.name AS tcg_game,c.created_at,c.updated_at FROM cards c JOIN tcg_games tcg ON c.tcg_game_id = tcg.tcg_game_id WHERE c.card_id = $1"
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return Card{}, fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(cardID).Scan(&card.ID, &card.Name, &card.ImageURL, &card.Description, &card.SetName, &card.CardNumber, &card.Rarity, &card.TCGGame, &card.CreatedAt, &card.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return Card{}, ErrNoCardFound
 	}
@@ -304,7 +343,13 @@ func (s *service) GetCardByID(cardID int) (Card, error) {
 
 func (s *service) CreateCard(card CardRequest) error {
 	query := `INSERT INTO cards (name, image_url, description, set_name, card_number, rarity, tcg_game_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	result, err := s.db.Exec(query, card.Name, card.ImageURL, card.Description, card.SetName, card.CardNumber, card.Rarity, card.TCGGameID)
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(card.Name, card.ImageURL, card.Description, card.SetName, card.CardNumber, card.Rarity, card.TCGGameID)
 	if err != nil {
 		return fmt.Errorf("%v", err)
 	}
@@ -324,7 +369,13 @@ func (s *service) CreateCard(card CardRequest) error {
 func (s *service) UpdateCard(cardID int, card CardRequest) error {
 	query := `UPDATE cards SET name = $1, image_url = $2, description = $3, set_name = $4, card_number = $5, rarity = $6, tcg_game_id = $7, updated_at = CURRENT_TIMESTAMP WHERE card_id = $8`
 
-	result, err := s.db.Exec(query, card.Name, card.ImageURL, card.Description, card.SetName, card.CardNumber, card.Rarity, card.TCGGameID, cardID)
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(card.Name, card.ImageURL, card.Description, card.SetName, card.CardNumber, card.Rarity, card.TCGGameID, cardID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -346,7 +397,14 @@ func (s *service) UpdateCard(cardID int, card CardRequest) error {
 func (s *service) DeleteCard(cardID int) error {
 	query := `DELETE FROM cards WHERE card_id = $1`
 
-	result, err := s.db.Exec(query, cardID)
+	stmt, err := s.db.Prepare(query)
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(cardID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -367,10 +425,13 @@ func (s *service) DeleteCard(cardID int) error {
 
 func (s *service) ListProducts() ([]Product, error) {
 	query := `SELECT p.product_id, p.price, p.condition, p.quantity, p.is_available, us.username AS seller, c.name AS card, l.language_name AS language, p.created_at, p.updated_at FROM products p JOIN users us ON p.seller_id = us.user_id JOIN cards c ON p.card_id = c.card_id JOIN languages l ON p.language_id = l.language_id`
-	rows, err := s.db.Query(query)
-	if err == sql.ErrNoRows {
-		return []Product{}, ErrNoProducts
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
@@ -393,16 +454,30 @@ func (s *service) ListProducts() ([]Product, error) {
 func (s *service) GetProductByID(productID int) (Product, error) {
 	var product Product
 	query := `SELECT p.product_id, p.price, p.condition, p.quantity, p.is_available, us.username AS seller, c.name AS card, l.language_name AS language, p.created_at, p.updated_at FROM products p JOIN users us ON p.seller_id = us.user_id JOIN cards c ON p.card_id = c.card_id JOIN languages l ON p.language_id = l.language_id WHERE p.product_id = $1`
-	err := s.db.QueryRow(query, productID).Scan(&product.ProductID, &product.Price, &product.Condition, &product.Quantity, &product.IsAvailable, &product.Seller, &product.Card, &product.Language, &product.CreatedAt, &product.UpdatedAt)
+	stmt, err := s.db.Prepare(query)
 	if err != nil {
+		return Product{}, fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(productID).Scan(&product.ProductID, &product.Price, &product.Condition, &product.Quantity, &product.IsAvailable, &product.Seller, &product.Card, &product.Language, &product.CreatedAt, &product.UpdatedAt)
+	if err == sql.ErrNoRows {
 		return Product{}, ErrNoProductFound
+	}
+	if err != nil {
+		return Product{}, fmt.Errorf("%v", err)
 	}
 	return product, nil
 }
 
 func (s *service) CreateProduct(product ProductRequest) error {
 	query := `INSERT INTO products (price, condition, quantity, is_available, seller_id, card_id, language_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	result, err := s.db.Exec(query, product.Price, product.Condition, product.Quantity, product.IsAvailable, product.SellerID, product.CardID, product.LanguageID)
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+	result, err := stmt.Exec(product.Price, product.Condition, product.Quantity, product.IsAvailable, product.SellerID, product.CardID, product.LanguageID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -423,8 +498,12 @@ func (s *service) CreateProduct(product ProductRequest) error {
 
 func (s *service) UpdateProduct(productID int, product ProductRequest) error {
 	query := `UPDATE products SET price = $1, condition = $2, quantity = $3, is_available = $4, seller_id = $5, card_id = $6, language_id = $7, updated_at = CURRENT_TIMESTAMP WHERE product_id = $8`
-
-	result, err := s.db.Exec(query, product.Price, product.Condition, product.Quantity, product.IsAvailable, product.SellerID, product.CardID, product.LanguageID, productID)
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+	result, err := stmt.Exec(product.Price, product.Condition, product.Quantity, product.IsAvailable, product.SellerID, product.CardID, product.LanguageID, productID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -446,7 +525,14 @@ func (s *service) UpdateProduct(productID int, product ProductRequest) error {
 func (s *service) DeleteProduct(productID int) error {
 	query := `DELETE FROM products WHERE product_id = $1`
 
-	result, err := s.db.Exec(query, productID)
+	stmt, err := s.db.Prepare(query)
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(productID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -467,10 +553,13 @@ func (s *service) DeleteProduct(productID int) error {
 
 func (s *service) ListOrders() ([]Order, error) {
 	query := `SELECT o.order_id, buyers.username AS buyer, sellers.username AS seller, o.quantity, c.name AS product, o.order_date, o.shipping_address, o.shipping_cost, o.total_amount, o.tracking_number, o.shipped_at, o.delivered_at, o.status, o.created_at, o.updated_at FROM orders o JOIN users buyers ON o.buyer_id = buyers.user_id JOIN users sellers ON o.seller_id = sellers.user_id JOIN products product ON o.product_id = product.product_id JOIN cards c ON product.card_id = c.card_id`
-	rows, err := s.db.Query(query)
-	if err == sql.ErrNoRows {
-		return []Order{}, ErrNoOrders
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
@@ -493,7 +582,14 @@ func (s *service) ListOrders() ([]Order, error) {
 func (s *service) GetOrderByID(orderID int) (Order, error) {
 	var order Order
 	query := `SELECT o.order_id, buyers.username AS buyer, sellers.username AS seller, o.quantity, c.name AS product, o.order_date, o.shipping_address, o.shipping_cost, o.total_amount, o.tracking_number, o.shipped_at, o.delivered_at, o.status, o.created_at, o.updated_at FROM orders o JOIN users buyers ON o.buyer_id = buyers.user_id JOIN users sellers ON o.seller_id = sellers.user_id JOIN products product ON o.product_id = product.product_id JOIN cards c ON product.card_id = c.card_id WHERE o.order_id = $1`
-	err := s.db.QueryRow(query, orderID).Scan(&order.OrderID, &order.Buyer, &order.Seller, &order.Quantity, &order.Product, &order.OrderDate, &order.ShippingAddress, &order.ShippingCost, &order.Total, &order.TrackingNumber, &order.ShippedAt, &order.DeliveredAt, &order.Status, &order.CreatedAt, &order.UpdatedAt)
+
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return Order{}, fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(orderID).Scan(&order.OrderID, &order.Buyer, &order.Seller, &order.Quantity, &order.Product, &order.OrderDate, &order.ShippingAddress, &order.ShippingCost, &order.Total, &order.TrackingNumber, &order.ShippedAt, &order.DeliveredAt, &order.Status, &order.CreatedAt, &order.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return Order{}, ErrNoOrderFound
 	}
@@ -505,7 +601,14 @@ func (s *service) GetOrderByID(orderID int) (Order, error) {
 
 func (s *service) CreateOrder(order OrderRequest) error {
 	query := `INSERT INTO orders (buyer_id, seller_id, product_id, quantity, order_date, shipping_address, shipping_cost, total_amount, tracking_number, shipped_at, delivered_at, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	result, err := s.db.Exec(query, order.BuyerID, order.SellerID, order.ProductID, order.Quantity, order.OrderDate, order.ShippingAddress, order.ShippingCost, order.Total, order.TrackingNumber, order.ShippedAt, order.DeliveredAt, order.Status)
+
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(order.BuyerID, order.SellerID, order.ProductID, order.Quantity, order.OrderDate, order.ShippingAddress, order.ShippingCost, order.Total, order.TrackingNumber, order.ShippedAt, order.DeliveredAt, order.Status)
 	if err != nil {
 		return fmt.Errorf("%v", err)
 	}
@@ -524,7 +627,13 @@ func (s *service) CreateOrder(order OrderRequest) error {
 func (s *service) UpdateOrder(orderID int, order OrderRequest) error {
 	query := `UPDATE orders SET buyer_id = $1, seller_id = $2, product_id = $3, quantity = $4, order_date = $5, shipping_address = $6, shipping_cost = $7, total_amount = $8, tracking_number = $9, shipped_at = $10, delivered_at = $11, status = $12, updated_at = CURRENT_TIMESTAMP WHERE order_id = $13`
 
-	result, err := s.db.Exec(query, order.BuyerID, order.SellerID, order.ProductID, order.Quantity, order.OrderDate, order.ShippingAddress, order.ShippingCost, order.Total, order.TrackingNumber, order.ShippedAt, order.DeliveredAt, order.Status, orderID)
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(order.BuyerID, order.SellerID, order.ProductID, order.Quantity, order.OrderDate, order.ShippingAddress, order.ShippingCost, order.Total, order.TrackingNumber, order.ShippedAt, order.DeliveredAt, order.Status, orderID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -546,7 +655,14 @@ func (s *service) UpdateOrder(orderID int, order OrderRequest) error {
 func (s *service) DeleteOrder(orderID int) error {
 	query := `DELETE FROM orders WHERE order_id = $1`
 
-	result, err := s.db.Exec(query, orderID)
+	stmt, err := s.db.Prepare(query)
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(orderID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -566,10 +682,13 @@ func (s *service) DeleteOrder(orderID int) error {
 }
 
 func (s *service) ListUsers() ([]User, error) {
-	rows, err := s.db.Query("SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.street_name, u.street_number, u.city, u.state, u.zip_code, u.seller_type, c.country_name, l.language_name, u.created_at, u.updated_at FROM users u JOIN countries c ON u.country_id = c.country_id JOIN languages l ON u.language_id = l.language_id")
-	if err == sql.ErrNoRows {
-		return nil, ErrNoUsers
+	stmt, err := s.db.Prepare("SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.street_name, u.street_number, u.city, u.state, u.zip_code, u.seller_type, c.country_name, l.language_name, u.created_at, u.updated_at FROM users u JOIN countries c ON u.country_id = c.country_id JOIN languages l ON u.language_id = l.language_id")
+	if err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
@@ -590,7 +709,14 @@ func (s *service) ListUsers() ([]User, error) {
 
 func (s *service) GetUserByID(userID int) (User, error) {
 	var user User
-	err := s.db.QueryRow("SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.street_name, u.street_number, u.city, u.state, u.zip_code, u.seller_type, c.country_name, l.language_name, u.created_at, u.updated_at FROM users u JOIN countries c ON u.country_id = c.country_id JOIN languages l ON u.language_id = l.language_id WHERE u.user_id = $1", userID).Scan(&user.UserID, &user.Username, &user.Email, &user.FirstName, &user.LastName, &user.StreetName, &user.StreetNumber, &user.City, &user.State, &user.ZipCode, &user.SellerType, &user.Country, &user.Language, &user.CreatedAt, &user.UpdatedAt)
+
+	stmt, err := s.db.Prepare("SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.street_name, u.street_number, u.city, u.state, u.zip_code, u.seller_type, c.country_name, l.language_name, u.created_at, u.updated_at FROM users u JOIN countries c ON u.country_id = c.country_id JOIN languages l ON u.language_id = l.language_id WHERE u.user_id = $1")
+	if err != nil {
+		return User{}, fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(userID).Scan(&user.UserID, &user.Username, &user.Email, &user.FirstName, &user.LastName, &user.StreetName, &user.StreetNumber, &user.City, &user.State, &user.ZipCode, &user.SellerType, &user.Country, &user.Language, &user.CreatedAt, &user.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return User{}, ErrNoUserFound
 	}
@@ -601,15 +727,131 @@ func (s *service) GetUserByID(userID int) (User, error) {
 }
 
 func (s *service) CreateUser(user UserRequest) error {
-	query := `INSERT INTO users (username, email, password, first_name, last_name, street_name, street_number, city, state, zip_code, seller_type, country_id, language_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
-	_, err := s.db.Exec(query, user.Username, user.Email, user.Password, user.FirstName, user.LastName, user.StreetName, user.StreetNumber, user.City, user.State, user.ZipCode, user.SellerType, user.CountryID, user.LanguageID)
-	return fmt.Errorf("%v", err)
+	query := `INSERT INTO users (username, email, password_hash, first_name, last_name, street_name, street_number, city, state, zip_code, seller_type, country_id, language_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+
+	stmt, err := s.db.Prepare(query)
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	passwordHash, err := hashPassword(user.Password)
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+
+	result, err := stmt.Exec(user.Username, user.Email, passwordHash, strVal(user.FirstName), strVal(user.LastName), strVal(user.StreetName), strVal(user.StreetNumber), strVal(user.City), strVal(user.State), strVal(user.ZipCode), strVal(user.SellerType), intVal(user.CountryID), intVal(user.LanguageID))
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (s *service) UpdateUser(userID int, user UserRequest) error {
-	query := `UPDATE users SET username = $1, email = $2, password = $3, first_name = $4, last_name = $5, street_name = $6, street_number = $7, city = $8, state = $9, zip_code = $10, seller_type = $11, country_id = $12, language_id = $13, updated_at = CURRENT_TIMESTAMP WHERE user_id = $14`
+	// Build dynamic update query based on provided fields
+	setClauses := []string{}
+	args := []interface{}{}
+	argIndex := 1
 
-	result, err := s.db.Exec(query, user.Username, user.Email, user.Password, user.FirstName, user.LastName, user.StreetName, user.StreetNumber, user.City, user.State, user.ZipCode, user.CountryID, user.LanguageID, userID)
+	if user.Username != "" {
+		setClauses = append(setClauses, fmt.Sprintf("username = $%d", argIndex))
+		args = append(args, user.Username)
+		argIndex++
+	}
+	if user.Email != "" {
+		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIndex))
+		args = append(args, user.Email)
+		argIndex++
+	}
+	if user.Password != "" {
+		passwordHash, err := hashPassword(user.Password)
+		if err != nil {
+			return fmt.Errorf("%v", err)
+		}
+		setClauses = append(setClauses, fmt.Sprintf("password = $%d", argIndex))
+		args = append(args, passwordHash)
+		argIndex++
+	}
+	if user.FirstName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("first_name = $%d", argIndex))
+		args = append(args, *user.FirstName)
+		argIndex++
+	}
+	if user.LastName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("last_name = $%d", argIndex))
+		args = append(args, *user.LastName)
+		argIndex++
+	}
+	if user.StreetName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("street_name = $%d", argIndex))
+		args = append(args, *user.StreetName)
+		argIndex++
+	}
+	if user.StreetNumber != nil {
+		setClauses = append(setClauses, fmt.Sprintf("street_number = $%d", argIndex))
+		args = append(args, *user.StreetNumber)
+		argIndex++
+	}
+	if user.City != nil {
+		setClauses = append(setClauses, fmt.Sprintf("city = $%d", argIndex))
+		args = append(args, *user.City)
+		argIndex++
+	}
+	if user.State != nil {
+		setClauses = append(setClauses, fmt.Sprintf("state = $%d", argIndex))
+		args = append(args, *user.State)
+		argIndex++
+	}
+	if user.ZipCode != nil {
+		setClauses = append(setClauses, fmt.Sprintf("zip_code = $%d", argIndex))
+		args = append(args, *user.ZipCode)
+		argIndex++
+	}
+	if user.SellerType != nil {
+		setClauses = append(setClauses, fmt.Sprintf("seller_type = $%d", argIndex))
+		args = append(args, *user.SellerType)
+		argIndex++
+	}
+	if user.CountryID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("country_id = $%d", argIndex))
+		args = append(args, *user.CountryID)
+		argIndex++
+	}
+	if user.LanguageID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("language_id = $%d", argIndex))
+		args = append(args, *user.LanguageID)
+		argIndex++
+	}
+
+	if len(setClauses) == 0 {
+		return errors.New("no fields to update")
+	}
+
+	// Always update updated_at
+	setClauses = append(setClauses, "updated_at = CURRENT_TIMESTAMP")
+
+	query := fmt.Sprintf("UPDATE users SET %s WHERE user_id = $%d", strings.Join(setClauses, ", "), argIndex)
+	args = append(args, userID)
+
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(args...)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -631,7 +873,14 @@ func (s *service) UpdateUser(userID int, user UserRequest) error {
 func (s *service) DeleteUser(userID int) error {
 	query := `DELETE FROM users WHERE user_id = $1`
 
-	result, err := s.db.Exec(query, userID)
+	stmt, err := s.db.Prepare(query)
+
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(userID)
 
 	if err != nil {
 		return fmt.Errorf("%v", err)
@@ -648,4 +897,28 @@ func (s *service) DeleteUser(userID int) error {
 	}
 
 	return nil
+}
+
+func (s *service) CheckLoginCredentials(username, password string) (bool, error) {
+	var storedHash string
+	query := "SELECT password_hash FROM users WHERE username = $1"
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return false, fmt.Errorf("%v", err)
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(username).Scan(&storedHash)
+	if err == sql.ErrNoRows {
+		return false, nil // User not found
+	}
+	if err != nil {
+		return false, fmt.Errorf("%v", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)); err != nil {
+		return false, nil // Password does not match
+	}
+
+	return true, nil // Successful login
 }

@@ -13,26 +13,27 @@ import (
 )
 
 type MockDBService struct {
-	ListCardsFunc      func() ([]database.Card, error)
-	GetCardByIDFunc    func() (database.Card, error)
-	CreateCardFunc     func(card database.CardRequest) error
-	UpdateCardFunc     func(cardID int, card database.CardRequest) error
-	DeleteCardFunc     func(cardID int) error
-	ListProductsFunc   func() ([]database.Product, error)
-	GetProductByIDFunc func(productID int) (database.Product, error)
-	CreateProductFunc  func(product database.ProductRequest) error
-	UpdateProductFunc  func(productID int, product database.ProductRequest) error
-	DeleteProductFunc  func(productID int) error
-	ListOrdersFunc     func() ([]database.Order, error)
-	GetOrderByIDFunc   func(orderID int) (database.Order, error)
-	CreateOrderFunc    func(order database.OrderRequest) error
-	UpdateOrderFunc    func(orderID int, order database.OrderRequest) error
-	DeleteOrderFunc    func(orderID int) error
-	ListUsersFunc      func() ([]database.User, error)
-	GetUserByIDFunc    func(userID int) (database.User, error)
-	CreateUserFunc     func(user database.UserRequest) error
-	UpdateUserFunc     func(userID int, user database.UserRequest) error
-	DeleteUserFunc     func(userID int) error
+	ListCardsFunc             func() ([]database.Card, error)
+	GetCardByIDFunc           func() (database.Card, error)
+	CreateCardFunc            func(card database.CardRequest) error
+	UpdateCardFunc            func(cardID int, card database.CardRequest) error
+	DeleteCardFunc            func(cardID int) error
+	ListProductsFunc          func() ([]database.Product, error)
+	GetProductByIDFunc        func(productID int) (database.Product, error)
+	CreateProductFunc         func(product database.ProductRequest) error
+	UpdateProductFunc         func(productID int, product database.ProductRequest) error
+	DeleteProductFunc         func(productID int) error
+	ListOrdersFunc            func() ([]database.Order, error)
+	GetOrderByIDFunc          func(orderID int) (database.Order, error)
+	CreateOrderFunc           func(order database.OrderRequest) error
+	UpdateOrderFunc           func(orderID int, order database.OrderRequest) error
+	DeleteOrderFunc           func(orderID int) error
+	ListUsersFunc             func() ([]database.User, error)
+	GetUserByIDFunc           func(userID int) (database.User, error)
+	CreateUserFunc            func(user database.UserRequest) error
+	UpdateUserFunc            func(userID int, user database.UserRequest) error
+	DeleteUserFunc            func(userID int) error
+	CheckLoginCredentialsFunc func(username, password string) (bool, error)
 }
 
 func (m *MockDBService) Close() error {
@@ -181,6 +182,13 @@ func (m *MockDBService) DeleteUser(userID int) error {
 		return m.DeleteUserFunc(userID)
 	}
 	return nil
+}
+
+func (m *MockDBService) CheckLoginCredentials(username, password string) (bool, error) {
+	if m.CheckLoginCredentialsFunc != nil {
+		return m.CheckLoginCredentialsFunc(username, password)
+	}
+	return false, nil
 }
 
 func TestHandler(t *testing.T) {
@@ -772,20 +780,30 @@ func TestCreateUserHandler(t *testing.T) {
 	s := &FiberServer{App: app, db: &mockDB}
 	app.Post("/api/users", s.createUserHandler)
 
+	firstName := "John"
+	lastName := "Doe"
+	streetName := "Main St"
+	streetNumber := "23"
+	city := "Anytown"
+	state := "CA"
+	zipCode := "12345"
+	sellerType := "powerseller"
+	languageId := 1
+	countryId := 1
 	userRequest := database.UserRequest{
 		Username:     "john_doe",
 		Email:        "john@example.com",
 		Password:     "newpassword",
-		FirstName:    "John",
-		LastName:     "Doe",
-		StreetName:   "Main St",
-		StreetNumber: "23",
-		City:         "Anytown",
-		State:        "CA",
-		ZipCode:      "12345",
-		SellerType:   "powerseller",
-		LanguageID:   1,
-		CountryID:    1,
+		FirstName:    &firstName,
+		LastName:     &lastName,
+		StreetName:   &streetName,
+		StreetNumber: &streetNumber,
+		City:         &city,
+		State:        &state,
+		ZipCode:      &zipCode,
+		SellerType:   &sellerType,
+		LanguageID:   &languageId,
+		CountryID:    &countryId,
 	}
 	userRequestBytes, err := json.Marshal(userRequest)
 	if err != nil {
@@ -828,20 +846,30 @@ func TestUpdateUserHandler(t *testing.T) {
 	s := &FiberServer{App: app, db: &mockDB}
 	app.Put("/api/users/:id", s.updateUserHandler)
 
+	firstName := "John"
+	lastName := "Doe"
+	streetName := "Main St"
+	streetNumber := "23"
+	city := "Anytown"
+	state := "CA"
+	zipCode := "12345"
+	sellerType := "powerseller"
+	languageId := 1
+	countryId := 1
 	userRequest := database.UserRequest{
 		Username:     "john_doe_updated",
 		Email:        "john_updated@example.com",
 		Password:     "updatedpassword",
-		FirstName:    "John",
-		LastName:     "Doe",
-		StreetName:   "Main St",
-		StreetNumber: "23",
-		City:         "Anytown",
-		State:        "CA",
-		ZipCode:      "12345",
-		SellerType:   "powerseller",
-		LanguageID:   1,
-		CountryID:    1,
+		FirstName:    &firstName,
+		LastName:     &lastName,
+		StreetName:   &streetName,
+		StreetNumber: &streetNumber,
+		City:         &city,
+		State:        &state,
+		ZipCode:      &zipCode,
+		SellerType:   &sellerType,
+		LanguageID:   &languageId,
+		CountryID:    &countryId,
 	}
 	userRequestBytes, err := json.Marshal(userRequest)
 	if err != nil {
@@ -904,6 +932,84 @@ func TestDeleteUserHandler(t *testing.T) {
 	}
 
 	expected := "{\"message\":\"user deleted\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestLoginHandler(t *testing.T) {
+	mockDB := MockDBService{
+		CheckLoginCredentialsFunc: func(username, password string) (bool, error) {
+			if username == "valid_user" && password == "valid_password" {
+				return true, nil
+			}
+			return false, nil
+		},
+	}
+	app := fiber.New()
+	s := &FiberServer{App: app, db: &mockDB}
+	app.Post("/api/login", s.loginHandler)
+
+	loginRequest := map[string]string{
+		"username": "valid_user",
+		"password": "valid_password",
+	}
+	loginRequestBytes, err := json.Marshal(loginRequest)
+	if err != nil {
+		t.Fatalf("error marshalling login request. Err: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/login", strings.NewReader(string(loginRequestBytes)))
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"login successful\"}"
+	if expected != string(body) {
+		t.Errorf("expected response body to be %v; got %v", expected, string(body))
+	}
+}
+
+func TestLogoutHandler(t *testing.T) {
+	app := fiber.New()
+	s := &FiberServer{App: app}
+	app.Post("/api/logout", s.logoutHandler)
+
+	req, err := http.NewRequest("POST", "/api/logout", nil)
+	if err != nil {
+		t.Fatalf("error creating request. Err: %v", err)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("error making request to server. Err: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body. Err: %v", err)
+	}
+
+	expected := "{\"message\":\"logout successful\"}"
 	if expected != string(body) {
 		t.Errorf("expected response body to be %v; got %v", expected, string(body))
 	}
